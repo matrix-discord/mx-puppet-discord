@@ -1,0 +1,5 @@
+config.yaml
+discord-registration.yaml
+node_modules
+build
+*.db
