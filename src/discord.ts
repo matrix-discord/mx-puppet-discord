@@ -14,6 +14,7 @@ import {
 	DiscordMessageParser,
 	IMatrixMessageParserOpts,
 	MatrixMessageParser,
+	IDiscordMessageParserCallbacks,
 } from "matrix-discord-parser";
 
 const log = new Log("DiscordPuppet:Discord");
@@ -136,25 +137,7 @@ export class DiscordClass {
 		}
 		if (msg.content) {
 			const opts = {
-				callbacks: {
-					getUser: async (id: string) => {
-						const mxid = await this.puppet.getMxidForUser({
-							puppetId,
-							userId: id,
-						});
-						let name = mxid;
-						const user = this.getUserById(p.client, id);
-						if (user) {
-							name = user.username;
-						}
-						return {
-							mxid,
-							name,
-						};
-					},
-					getChannel: async (id: string) => null, // we don't handle channels
-					getEmoji: async (name: string, animated: boolean, id: string) => null, // TODO: handle emoji
-				},
+				callbacks: this.getDiscordMsgParserCallbacks(puppetId),
 			} as IDiscordMessageParserOpts;
 			const reply = await this.discordMsgParser.FormatMessage(opts, msg);
 			await this.puppet.sendMessage(params, {
@@ -164,6 +147,31 @@ export class DiscordClass {
 				notice: reply.msgtype === "m.notice",
 			});
 		}
+	}
+
+	public async handleDiscordMessageUpdate(puppetId: number, msg1: Discord.Message, msg2: Discord.Message) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			return;
+		}
+		if (msg1.author.id === p.client.user.id) {
+			return; // TODO: proper filtering for double-puppetting
+		}
+		if (msg1.channel.type !== "dm") {
+			log.info("Only handling DM channels, dropping message...");
+			return;
+		}
+		const params = this.getSendParams(puppetId, msg1);
+		const opts = {
+			callbacks: this.getDiscordMsgParserCallbacks(puppetId),
+		} as IDiscordMessageParserOpts;
+		const reply = await this.discordMsgParser.FormatEdit(opts, msg1, msg2);
+		await this.puppet.sendMessage(params, {
+			body: reply.body,
+			formatted_body: reply.formattedBody,
+			emote: reply.msgtype === "m.emote",
+			notice: reply.msgtype === "m.notice",
+		});
 	}
 
 	public async newPuppet(puppetId: number, data: any) {
@@ -181,6 +189,9 @@ export class DiscordClass {
 		});
 		client.on("message", async (msg: Discord.Message) => {
 			await this.handleDiscordMessage(puppetId, msg);
+		});
+		client.on("messageUpdate", async (msg1: Discord.Message, msg2: Discord.Message) => {
+			await this.handleDiscordMessageUpdate(puppetId, msg1, msg2);
 		});
 		client.on("typingStart", async (chan: Discord.Channel, user: Discord.User) => {
 			const params = this.getSendParams(puppetId, chan, user);
@@ -224,5 +235,28 @@ export class DiscordClass {
 		const lookupId = id.substring("dm-".length);
 		const user = this.getUserById(client, lookupId);
 		return user ? user as any : null;
+	}
+
+	private getDiscordMsgParserCallbacks(puppetId: number) {
+		const p = this.puppets[puppetId];
+		return {
+			getUser: async (id: string) => {
+				const mxid = await this.puppet.getMxidForUser({
+					puppetId,
+					userId: id,
+				});
+				let name = mxid;
+				const user = this.getUserById(p.client, id);
+				if (user) {
+					name = user.username;
+				}
+				return {
+					mxid,
+					name,
+				};
+			},
+			getChannel: async (id: string) => null, // we don't handle channels
+			getEmoji: async (name: string, animated: boolean, id: string) => null, // TODO: handle emoji
+		} as IDiscordMessageParserCallbacks;
 	}
 }
