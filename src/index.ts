@@ -80,7 +80,7 @@ async function run() {
 		}
 		if (data.id) {
 			if (html) {
-				s += ` (<code>${escapeHtml(data.id)}`;
+				s += ` (<code>${escapeHtml(data.id)}</code>)`;
 			} else {
 				s += ` (${data.id})`;
 			}
