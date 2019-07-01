@@ -107,8 +107,10 @@ export class DiscordClass {
 		}
 
 		let size = data.info ? data.info.size || 0 : 0;
-		if (size < MAXFILESIZE) {
+		let mimetype = data.info ? data.info.mimetype : "";
+		if (size < MAXFILESIZE && false) {
 			const attachment = await Util.DownloadFile(data.url);
+			mimetype = Util.GetMimeType(attachment);
 			size = attachment.byteLength;
 			if (size < MAXFILESIZE) {
 				// send as attachment
@@ -119,16 +121,22 @@ export class DiscordClass {
 				if (!filename.match(/\.[a-zA-Z0.9]+$/)) {
 					// we need to add a file ending as discord apparently doesn't like
 					// files without ending
-					const mimetype = Util.GetMimeType(attachment);
 					if (mimetype) {
 						filename += `.${mimetype.split("/")[1]}`;
 					}
 				}
-				await chan.send(new Discord.Attachment(attachment, filename));
+				await chan!.send(new Discord.Attachment(attachment, filename));
 				return;
 			}
 		}
-		await chan.send(`Uploaded File: [${data.filename}](${data.url})`);
+		if (mimetype && mimetype.split("/")[0] === "image") {
+			const embed = new Discord.RichEmbed()
+				.setTitle(data.filename)
+				.setImage(data.url);
+			await chan.send(embed);
+		} else {
+			await chan.send(`Uploaded File: [${data.filename}](${data.url})`);
+		}
 	}
 
 	public async handleDiscordMessage(puppetId: number, msg: Discord.Message) {
