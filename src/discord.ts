@@ -16,6 +16,8 @@ import {
 	MatrixMessageParser,
 	IDiscordMessageParserCallbacks,
 } from "matrix-discord-parser";
+import * as path from "path";
+import * as mime from "mime";
 
 const log = new Log("DiscordPuppet:Discord");
 
@@ -107,24 +109,13 @@ export class DiscordClass {
 		}
 
 		let size = data.info ? data.info.size || 0 : 0;
-		let mimetype = data.info ? data.info.mimetype : "";
-		if (size < MAXFILESIZE && false) {
+		const mimetype = data.info ? data.info.mimetype : "";
+		if (size < MAXFILESIZE) {
 			const attachment = await Util.DownloadFile(data.url);
-			mimetype = Util.GetMimeType(attachment);
 			size = attachment.byteLength;
 			if (size < MAXFILESIZE) {
 				// send as attachment
-				let filename = data.filename;
-				if (!filename) {
-					filename = "file";
-				}
-				if (!filename.match(/\.[a-zA-Z0.9]+$/)) {
-					// we need to add a file ending as discord apparently doesn't like
-					// files without ending
-					if (mimetype) {
-						filename += `.${mimetype.split("/")[1]}`;
-					}
-				}
+				const filename = this.getFilenameForMedia(data.filename, mimetype);
 				await chan!.send(new Discord.Attachment(attachment, filename));
 				return;
 			}
@@ -279,5 +270,20 @@ export class DiscordClass {
 			getChannel: async (id: string) => null, // we don't handle channels
 			getEmoji: async (name: string, animated: boolean, id: string) => null, // TODO: handle emoji
 		} as IDiscordMessageParserCallbacks;
+	}
+
+	private getFilenameForMedia(filename: string, mimetype: string): string {
+		let ext = "";
+		const mimeExt = mime.getExtension(mimetype);
+		if (mimeExt) {
+			ext = "." + mimeExt;
+		}
+		if (filename) {
+			if (path.extname(filename) !== "") {
+				return filename;
+			}
+			return path.basename(filename) + ext;
+		}
+		return "matrix-media" + ext;
 	}
 }
