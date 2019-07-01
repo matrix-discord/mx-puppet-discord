@@ -106,12 +106,25 @@ export class DiscordClass {
 			return;
 		}
 
-		const size = data.info ? data.info.size || 0 : 0;
+		let size = data.info ? data.info.size || 0 : 0;
 		if (size < MAXFILESIZE) {
 			const attachment = await Util.DownloadFile(data.url);
+			size = attachment.byteLength;
 			if (size < MAXFILESIZE) {
 				// send as attachment
-				await chan.send(new Discord.Attachment(attachment, data.filename));
+				let filename = data.filename;
+				if (!filename) {
+					filename = "file";
+				}
+				if (!filename.match(/\.[a-zA-Z0.9]+$/)) {
+					// we need to add a file ending as discord apparently doesn't like
+					// files without ending
+					const mimetype = Util.GetMimeType(attachment);
+					if (mimetype) {
+						filename += `.${mimetype.split("/")[1]}`;
+					}
+				}
+				await chan.send(new Discord.Attachment(attachment, filename));
 				return;
 			}
 		}
