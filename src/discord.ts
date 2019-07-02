@@ -43,6 +43,15 @@ export class DiscordClass {
 		this.matrixMsgParser = new MatrixMessageParser();
 	}
 
+	public getRemoteUser(puppetId: number, user: Discord.User): IRemoteUser {
+		return {
+			userId: user.id,
+			puppetId,
+			avatarUrl: user.avatarURL,
+			name: user.username,
+		};
+	}
+
 	public getSendParams(puppetId: number, msg: Discord.Message | Discord.Channel, user?: Discord.User): IReceiveParams {
 		let channel: Discord.Channel;
 		if (!user) {
@@ -57,12 +66,7 @@ export class DiscordClass {
 				puppetId,
 				isDirect: channel.type === "dm",
 			},
-			user: {
-				userId: user.id,
-				puppetId,
-				avatarUrl: user.avatarURL,
-				name: user.username,
-			},
+			user: this.getRemoteUser(puppetId, user),
 		} as IReceiveParams;
 	}
 
@@ -212,6 +216,19 @@ export class DiscordClass {
 		client.on("typingStop", async (chan: Discord.Channel, user: Discord.User) => {
 			const params = this.getSendParams(puppetId, chan, user);
 			await this.puppet.setUserTyping(params, false);
+		});
+		client.on("presenceUpdate", async (_, member: Discord.GuildMember) => {
+			const user = member.user;
+			const matrixPresence = {
+				online: "online",
+				idle: "unavailable",
+				dnd: "unavailable",
+				offline: "offline",
+			}[user.presence.status];
+			const statusMsg = member.presence.game ? member.presence.game.name : "";
+			const remoteUser = this.getRemoteUser(puppetId, user);
+			await this.puppet.setUserPresence(remoteUser, matrixPresence);
+			await this.puppet.setUserStatus(remoteUser, statusMsg);
 		});
 		this.puppets[puppetId] = {
 			client,

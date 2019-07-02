@@ -42,6 +42,7 @@ if (options.help) {
 
 const features = {
 	file: true,
+	presence: true,
 } as IPuppetBridgeFeatures;
 
 const puppet = new PuppetBridge(options["registration-file"], options.config, features);
