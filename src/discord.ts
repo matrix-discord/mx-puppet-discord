@@ -70,35 +70,29 @@ export class DiscordClass {
 		} as IReceiveParams;
 	}
 
+	public async insertNewEventId(puppetId: number, matrixId: string, msgs: Discord.Message | Discord.Message[]) {
+		if (!Array.isArray(msgs)) {
+			msgs = [msgs];
+		}
+		for (const m of msgs) {
+			await this.puppet.eventStore.insert(puppetId, matrixId, m.id);
+		}
+	}
+
 	public async handleMatrixMessage(room: IRemoteChan, data: IMessageEvent, event: any) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
 		}
-		const chan = this.getDiscordChan(p.client, room.roomId);
+		const chan = await this.getDiscordChan(p.client, room.roomId);
 		if (!chan) {
 			log.warn("Channel not found", room);
 			return;
 		}
 
-		const opts = {
-			displayname: "", // something too short
-			callbacks: {
-				canNotifyRoom: async () => true,
-				getUserId: async (mxid: string) => {
-					const parts = this.puppet.userSync.getPartsFromMxid(mxid);
-					if (!parts || parts.puppetId !== room.puppetId) {
-						return null;
-					}
-					return parts.userId;
-				},
-				getChannelId: async (mxid: string) => null,
-				getEmojiId: async (mxc: string, name: string) => null, // TODO: handle emoji
-				mxcUrlToHttp: (mxc: string) => this.puppet.getUrlFromMxc(mxc),
-			},
-		} as IMatrixMessageParserOpts;
-		const sendMsg = await this.matrixMsgParser.FormatMessage(opts, event.content);
-		await chan.send(sendMsg);
+		const sendMsg = await this.parseMatrixMessage(room.puppetId, event.content);
+		const reply = await chan.send(sendMsg);
+		await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 	}
 
 	public async handleMatrixFile(room: IRemoteChan, data: IFileEvent, event: any) {
@@ -106,21 +100,22 @@ export class DiscordClass {
 		if (!p) {
 			return;
 		}
-		const chan = this.getDiscordChan(p.client, room.roomId);
+		const chan = await this.getDiscordChan(p.client, room.roomId);
 		if (!chan) {
 			log.warn("Channel not found", room);
 			return;
 		}
 
 		let size = data.info ? data.info.size || 0 : 0;
-		const mimetype = data.info ? data.info.mimetype : "";
+		const mimetype = data.info ? data.info.mimetype || "" : "";
 		if (size < MAXFILESIZE) {
 			const attachment = await Util.DownloadFile(data.url);
 			size = attachment.byteLength;
 			if (size < MAXFILESIZE) {
 				// send as attachment
 				const filename = this.getFilenameForMedia(data.filename, mimetype);
-				await chan!.send(new Discord.Attachment(attachment, filename));
+				const reply = await chan!.send(new Discord.Attachment(attachment, filename));
+				await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 				return;
 			}
 		}
@@ -128,10 +123,50 @@ export class DiscordClass {
 			const embed = new Discord.RichEmbed()
 				.setTitle(data.filename)
 				.setImage(data.url);
-			await chan.send(embed);
+			const reply = await chan.send(embed);
+			await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 		} else {
-			await chan.send(`Uploaded File: [${data.filename}](${data.url})`);
+			const reply = await chan.send(`Uploaded File: [${data.filename}](${data.url})`);
+			await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 		}
+	}
+
+	public async handleMatrixRedact(room: IRemoteChan, eventId: string, event: any) {
+		const p = this.puppets[room.puppetId];
+		if (!p) {
+			return;
+		}
+		const chan = await this.getDiscordChan(p.client, room.roomId);
+		if (!chan) {
+			log.warn("Channel not found", room);
+			return;
+		}
+		log.verbose(`Deleting message with ID ${eventId}...`);
+		const msg = await chan.fetchMessage(eventId);
+		if (!msg) {
+			return;
+		}
+		await msg.delete();
+	}
+
+	public async handleMatrixEdit(room: IRemoteChan, eventId: string, data: IMessageEvent, event: any) {
+		const p = this.puppets[room.puppetId];
+		if (!p) {
+			return;
+		}
+		const chan = await this.getDiscordChan(p.client, room.roomId);
+		if (!chan) {
+			log.warn("Channel not found", room);
+			return;
+		}
+		log.verbose(`Editing message with ID ${eventId}...`);
+		const msg = await chan.fetchMessage(eventId);
+		if (!msg) {
+			return;
+		}
+		const sendMsg = await this.parseMatrixMessage(room.puppetId, event.content["m.new_content"]);
+		const reply = await msg.edit(sendMsg);
+		await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 	}
 
 	public async handleDiscordMessage(puppetId: number, msg: Discord.Message) {
@@ -148,6 +183,7 @@ export class DiscordClass {
 			return;
 		}
 		const params = this.getSendParams(puppetId, msg);
+		params.eventId = msg.id;
 		for ( const [_, attachment] of Array.from(msg.attachments)) {
 			await this.puppet.sendFileDetect(params, attachment.url, attachment.filename);
 		}
@@ -158,7 +194,7 @@ export class DiscordClass {
 			const reply = await this.discordMsgParser.FormatMessage(opts, msg);
 			await this.puppet.sendMessage(params, {
 				body: reply.body,
-				formatted_body: reply.formattedBody,
+				formattedBody: reply.formattedBody,
 				emote: reply.msgtype === "m.emote",
 				notice: reply.msgtype === "m.notice",
 			});
@@ -181,13 +217,18 @@ export class DiscordClass {
 		const opts = {
 			callbacks: this.getDiscordMsgParserCallbacks(puppetId),
 		} as IDiscordMessageParserOpts;
-		const reply = await this.discordMsgParser.FormatEdit(opts, msg1, msg2);
-		await this.puppet.sendMessage(params, {
+		const reply = await this.discordMsgParser.FormatMessage(opts, msg2);
+		await this.puppet.sendEdit(params, msg1.id, {
 			body: reply.body,
-			formatted_body: reply.formattedBody,
+			formattedBody: reply.formattedBody,
 			emote: reply.msgtype === "m.emote",
 			notice: reply.msgtype === "m.notice",
 		});
+	}
+
+	public async handleDiscordMessageDelete(puppetId: number, msg: Discord.Message) {
+		const params = this.getSendParams(puppetId, msg);
+		await this.puppet.sendRedact(params, msg.id);
 	}
 
 	public async newPuppet(puppetId: number, data: any) {
@@ -209,6 +250,14 @@ export class DiscordClass {
 		client.on("messageUpdate", async (msg1: Discord.Message, msg2: Discord.Message) => {
 			await this.handleDiscordMessageUpdate(puppetId, msg1, msg2);
 		});
+		client.on("messageDelete", async (msg: Discord.Message) => {
+			await this.handleDiscordMessageDelete(puppetId, msg);
+		});
+		client.on("messageDeleteBulk", async (msgs: Discord.Collection<Discord.Snowflake, Discord.Message>) => {
+			for (const [_, msg] of Array.from(msgs)) {
+				await this.handleDiscordMessageDelete(puppetId, msg);
+			}
+		});
 		client.on("typingStart", async (chan: Discord.Channel, user: Discord.User) => {
 			const params = this.getSendParams(puppetId, chan, user);
 			await this.puppet.setUserTyping(params, true);
@@ -224,7 +273,7 @@ export class DiscordClass {
 				idle: "unavailable",
 				dnd: "unavailable",
 				offline: "offline",
-			}[user.presence.status];
+			}[user.presence.status] as "online" | "offline" | "unavailable";
 			const statusMsg = member.presence.game ? member.presence.game.name : "";
 			const remoteUser = this.getRemoteUser(puppetId, user);
 			await this.puppet.setUserPresence(remoteUser, matrixPresence);
@@ -247,6 +296,27 @@ export class DiscordClass {
 		delete this.puppet[puppetId];
 	}
 
+	private async parseMatrixMessage(puppetId: number, eventContent: any): Promise<string> {
+		const opts = {
+			displayname: "", // something too short
+			callbacks: {
+				canNotifyRoom: async () => true,
+				getUserId: async (mxid: string) => {
+					const parts = this.puppet.userSync.getPartsFromMxid(mxid);
+					if (!parts || parts.puppetId !== puppetId) {
+						return null;
+					}
+					return parts.userId;
+				},
+				getChannelId: async (mxid: string) => null,
+				getEmojiId: async (mxc: string, name: string) => null, // TODO: handle emoji
+				mxcUrlToHttp: (mxc: string) => this.puppet.getUrlFromMxc(mxc),
+			},
+		} as IMatrixMessageParserOpts;
+		const msg = await this.matrixMsgParser.FormatMessage(opts, eventContent);
+		return msg;
+	}
+
 	private getUserById(client: Discord.Client, id: string): Discord.User | null {
 		for (const [_, guild] of Array.from(client.guilds)) {
 			const a = guild.members.find((m) => m.user.id === id);
@@ -257,13 +327,17 @@ export class DiscordClass {
 		return null;
 	}
 
-	private getDiscordChan(client: Discord.Client, id: string): Discord.DMChannel | null {
+	private async getDiscordChan(client: Discord.Client, id: string): Promise<Discord.DMChannel | null> {
 		if (!id.startsWith("dm-")) {
 			return null; // not a DM channel, not implemented yet
 		}
 		const lookupId = id.substring("dm-".length);
 		const user = this.getUserById(client, lookupId);
-		return user ? user as any : null;
+		if (!user) {
+			return null;
+		}
+		const chan = await user.createDM();
+		return chan;
 	}
 
 	private getDiscordMsgParserCallbacks(puppetId: number) {

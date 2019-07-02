@@ -43,6 +43,7 @@ if (options.help) {
 const features = {
 	file: true,
 	presence: true,
+	edit: true,
 } as IPuppetBridgeFeatures;
 
 const puppet = new PuppetBridge(options["registration-file"], options.config, features);
@@ -70,6 +71,8 @@ async function run() {
 	puppet.on("puppetDelete", discord.deletePuppet.bind(discord));
 	puppet.on("message", discord.handleMatrixMessage.bind(discord));
 	puppet.on("file", discord.handleMatrixFile.bind(discord));
+	puppet.on("redact", discord.handleMatrixRedact.bind(discord));
+	puppet.on("edit", discord.handleMatrixEdit.bind(discord));
 	puppet.setGetDescHook(async (puppetId: number, data: any, html: boolean): Promise<string> => {
 		let s = "Discord";
 		if (data.username) {
