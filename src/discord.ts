@@ -178,7 +178,7 @@ export class DiscordClass {
 			return; // TODO: proper filtering for double-puppetting
 		}
 		log.info("Received new message!");
-		if (msg.channel.type !== "dm") {
+		if (!this.bridgeChannel(puppetId, msg.channel)) {
 			log.info("Only handling DM channels, dropping message...");
 			return;
 		}
@@ -209,7 +209,7 @@ export class DiscordClass {
 		if (msg1.author.id === p.client.user.id) {
 			return; // TODO: proper filtering for double-puppetting
 		}
-		if (msg1.channel.type !== "dm") {
+		if (!this.bridgeChannel(puppetId, msg1.channel)) {
 			log.info("Only handling DM channels, dropping message...");
 			return;
 		}
@@ -227,6 +227,17 @@ export class DiscordClass {
 	}
 
 	public async handleDiscordMessageDelete(puppetId: number, msg: Discord.Message) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			return;
+		}
+		if (msg.author.id === p.client.user.id) {
+			return; // TODO: proper filtering for double-puppetting
+		}
+		if (!this.bridgeChannel(puppetId, msg.channel)) {
+			log.info("Only handling DM channels, dropping message...");
+			return;
+		}
 		const params = this.getSendParams(puppetId, msg);
 		await this.puppet.sendRedact(params, msg.id);
 	}
@@ -294,6 +305,10 @@ export class DiscordClass {
 		}
 		await p.client.destroy();
 		delete this.puppet[puppetId];
+	}
+
+	private bridgeChannel(puppetId: number, chan: Discord.Channel): boolean {
+		return chan.type === "dm"; // currently we only allow dm bridging
 	}
 
 	private async parseMatrixMessage(puppetId: number, eventContent: any): Promise<string> {
