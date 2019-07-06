@@ -377,7 +377,11 @@ export class DiscordClass {
 			if (reaction.me) {
 				return; // TODO: filter this out better
 			}
-			const params = this.getSendParams(puppetId, reaction.message.channel, user);
+			const chan = reaction.message.channel;
+			if (!this.bridgeChannel(puppetId, chan)) {
+				return;
+			}
+			const params = this.getSendParams(puppetId, chan, user);
 			await this.puppet.sendReaction(params, reaction.message.id, reaction.emoji.name);
 		});
 		this.puppets[puppetId] = {
