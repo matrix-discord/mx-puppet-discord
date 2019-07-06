@@ -44,6 +44,7 @@ const features = {
 	file: true,
 	presence: true,
 	edit: true,
+	reply: true,
 } as IPuppetBridgeFeatures;
 
 const puppet = new PuppetBridge(options["registration-file"], options.config, features);
@@ -73,6 +74,7 @@ async function run() {
 	puppet.on("file", discord.handleMatrixFile.bind(discord));
 	puppet.on("redact", discord.handleMatrixRedact.bind(discord));
 	puppet.on("edit", discord.handleMatrixEdit.bind(discord));
+	puppet.on("reply", discord.handleMatrixReply.bind(discord));
 	puppet.setCreateChanHook(discord.createChan.bind(discord));
 	puppet.setCreateUserHook(discord.createUser.bind(discord));
 	puppet.setGetDmRoomIdHook(discord.getDmRoom.bind(discord));

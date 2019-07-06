@@ -195,6 +195,46 @@ export class DiscordClass {
 		await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 	}
 
+	public async handleMatrixReply(room: IRemoteChan, eventId: string, data: IMessageEvent, event: any) {
+		const p = this.puppets[room.puppetId];
+		if (!p) {
+			return;
+		}
+		const chan = await this.getDiscordChan(p.client, room.roomId);
+		if (!chan) {
+			log.warn("Channel not found", room);
+			return;
+		}
+		log.verbose(`Replying to message with ID ${eventId}...`);
+		const msg = await chan.fetchMessage(eventId);
+		if (!msg) {
+			return;
+		}
+		const sendMsg = await this.parseMatrixMessage(room.puppetId, event.content);
+		const replyEmbed = new Discord.RichEmbed()
+			.setTimestamp(new Date(msg.createdAt))
+			.setDescription(msg.content)
+			.setAuthor(msg.author.username, msg.author.avatarURL);
+		if (msg.embeds && msg.embeds[0]) {
+			const msgEmbed = msg.embeds[0];
+			// if an author is set it wasn't an image embed thingy we send
+			if (msgEmbed.image && !msgEmbed.author) {
+				replyEmbed.setImage(msgEmbed.image.url);
+			}
+		}
+		if (msg.attachments.first()) {
+			const attach = msg.attachments.first();
+			if (attach.height) {
+				// image!
+				replyEmbed.setImage(attach.proxyURL);
+			} else {
+				replyEmbed.description += `[${attach.filename}](attach.proxyURL)`;
+			}
+		}
+		const reply = await chan.send(sendMsg, replyEmbed);
+		await this.insertNewEventId(room.puppetId, data.eventId!, reply);
+	}
+
 	public async handleDiscordMessage(puppetId: number, msg: Discord.Message) {
 		const p = this.puppets[puppetId];
 		if (!p) {
