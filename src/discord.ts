@@ -65,7 +65,7 @@ export class DiscordClass {
 			ret.avatarUrl = textChannel.guild.iconURL;
 		}
 		return ret;
-	};
+	}
 
 	public async getRemoteChanById(puppetId: number, id: string): Promise<IRemoteChan | null> {
 		const p = this.puppets[puppetId];
@@ -81,7 +81,7 @@ export class DiscordClass {
 
 	public getSendParams(puppetId: number, msg: Discord.Message | Discord.Channel, user?: Discord.User): IReceiveParams {
 		let channel: Discord.Channel;
-		let eventId: string | undefined = undefined;
+		let eventId: string | undefined;
 		if (!user) {
 			channel = (msg as Discord.Message).channel;
 			user = (msg as Discord.Message).author;
@@ -235,6 +235,24 @@ export class DiscordClass {
 		await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 	}
 
+	public async handleMatrixReaction(room: IRemoteChan, eventId: string, reaction: string, event: any) {
+		const p = this.puppets[room.puppetId];
+		if (!p) {
+			return;
+		}
+		const chan = await this.getDiscordChan(p.client, room.roomId);
+		if (!chan) {
+			log.warn("Channel not found", room);
+			return;
+		}
+		log.verbose(`Reacting to ${eventId} with ${reaction}...`);
+		const msg = await chan.fetchMessage(eventId);
+		if (!msg) {
+			return;
+		}
+		await msg.react(reaction);
+	}
+
 	public async handleDiscordMessage(puppetId: number, msg: Discord.Message) {
 		const p = this.puppets[puppetId];
 		if (!p) {
@@ -355,6 +373,13 @@ export class DiscordClass {
 			await this.puppet.setUserPresence(remoteUser, matrixPresence);
 			await this.puppet.setUserStatus(remoteUser, statusMsg);
 		});
+		client.on("messageReactionAdd", async (reaction: Discord.MessageReaction, user: Discord.User) => {
+			if (reaction.me) {
+				return; // TODO: filter this out better
+			}
+			const params = this.getSendParams(puppetId, reaction.message.channel, user);
+			await this.puppet.sendReaction(params, reaction.message.id, reaction.emoji.name);
+		});
 		this.puppets[puppetId] = {
 			client,
 			data,
@@ -411,7 +436,7 @@ export class DiscordClass {
 				category: true,
 				name: guild.name,
 			});
-			for (const [_, member] of Array.from(guild.members)) {
+			for (const [__, member] of Array.from(guild.members)) {
 				ret.push({
 					name: member.user.username,
 					id: member.user.id,
@@ -456,7 +481,9 @@ export class DiscordClass {
 		return null;
 	}
 
-	private async getDiscordChan(client: Discord.Client, id: string): Promise<Discord.DMChannel | Discord.TextChannel | null> {
+	private async getDiscordChan(
+		client: Discord.Client, id: string,
+	): Promise<Discord.DMChannel | Discord.TextChannel | null> {
 		if (!id.startsWith("dm-")) {
 			// we have a guild textChannel
 			for (const [_, guild] of Array.from(client.guilds)) {
