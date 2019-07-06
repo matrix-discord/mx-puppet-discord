@@ -7,6 +7,7 @@ import {
 	IMessageEvent,
 	IFileEvent,
 	Util,
+	IRetList,
 } from "mx-puppet-bridge";
 import * as Discord from "discord.js";
 import {
@@ -52,21 +53,46 @@ export class DiscordClass {
 		};
 	}
 
+	public getRemoteChan(puppetId: number, channel: Discord.Channel, dmId: string): IRemoteChan {
+		const ret = {
+			roomId: channel.type === "dm" ? dmId : channel.id,
+			puppetId,
+			isDirect: channel.type === "dm",
+		} as IRemoteChan;
+		if (channel.type === "text") {
+			const textChannel = channel as Discord.TextChannel;
+			ret.name = `#${textChannel.name} - ${textChannel.guild.name}`;
+			ret.avatarUrl = textChannel.guild.iconURL;
+		}
+		return ret;
+	};
+
+	public async getRemoteChanById(puppetId: number, id: string): Promise<IRemoteChan | null> {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			return null;
+		}
+		const chan = await this.getDiscordChan(p.client, id);
+		if (!chan) {
+			return null;
+		}
+		return this.getRemoteChan(puppetId, chan, id);
+	}
+
 	public getSendParams(puppetId: number, msg: Discord.Message | Discord.Channel, user?: Discord.User): IReceiveParams {
 		let channel: Discord.Channel;
+		let eventId: string | undefined = undefined;
 		if (!user) {
 			channel = (msg as Discord.Message).channel;
 			user = (msg as Discord.Message).author;
+			eventId = (msg as Discord.Message).id;
 		} else {
 			channel = msg as Discord.Channel;
 		}
 		return {
-			chan: {
-				roomId: channel.type === "dm" ? `dm-${user.id}` : channel.id,
-				puppetId,
-				isDirect: channel.type === "dm",
-			},
+			chan: this.getRemoteChan(puppetId, channel, `dm-${user.id}`),
 			user: this.getRemoteUser(puppetId, user),
+			eventId,
 		} as IReceiveParams;
 	}
 
@@ -183,7 +209,6 @@ export class DiscordClass {
 			return;
 		}
 		const params = this.getSendParams(puppetId, msg);
-		params.eventId = msg.id;
 		for ( const [_, attachment] of Array.from(msg.attachments)) {
 			await this.puppet.sendFileDetect(params, attachment.url, attachment.filename);
 		}
@@ -307,6 +332,55 @@ export class DiscordClass {
 		delete this.puppet[puppetId];
 	}
 
+	public async createChan(chan: IRemoteChan): Promise<IRemoteChan | null> {
+		return await this.getRemoteChanById(chan.puppetId, chan.roomId);
+	}
+
+	public async createUser(user: IRemoteUser): Promise<IRemoteUser | null> {
+		const p = this.puppets[user.puppetId];
+		if (!p) {
+			return null;
+		}
+		const u = this.getUserById(p.client, user.userId);
+		if (!u) {
+			return null;
+		}
+		return this.getRemoteUser(user.puppetId, u);
+	}
+
+	public async getDmRoom(user: IRemoteUser): Promise<string | null> {
+		const p = this.puppets[user.puppetId];
+		if (!p) {
+			return null;
+		}
+		const u = this.getUserById(p.client, user.userId);
+		if (!u) {
+			return null;
+		}
+		return `dm-${u.id}`;
+	}
+
+	public async listUsers(puppetId: number): Promise<IRetList[]> {
+		const ret: IRetList[] = [];
+		const p = this.puppets[puppetId];
+		if (!p) {
+			return [];
+		}
+		for (const [_, guild] of Array.from(p.client.guilds)) {
+			ret.push({
+				category: true,
+				name: guild.name,
+			});
+			for (const [_, member] of Array.from(guild.members)) {
+				ret.push({
+					name: member.user.username,
+					id: member.user.id,
+				});
+			}
+		}
+		return ret;
+	}
+
 	private bridgeChannel(puppetId: number, chan: Discord.Channel): boolean {
 		return chan.type === "dm"; // currently we only allow dm bridging
 	}
@@ -342,17 +416,26 @@ export class DiscordClass {
 		return null;
 	}
 
-	private async getDiscordChan(client: Discord.Client, id: string): Promise<Discord.DMChannel | null> {
+	private async getDiscordChan(client: Discord.Client, id: string): Promise<Discord.DMChannel | Discord.TextChannel | null> {
 		if (!id.startsWith("dm-")) {
-			return null; // not a DM channel, not implemented yet
+			// we have a guild textChannel
+			for (const [_, guild] of Array.from(client.guilds)) {
+				const chan = guild.channels.get(id);
+				if (chan && chan.type === "text") {
+					return chan as Discord.TextChannel;
+				}
+			}
+			return null; // nothing found
+		} else {
+			// we have a DM channel
+			const lookupId = id.substring("dm-".length);
+			const user = this.getUserById(client, lookupId);
+			if (!user) {
+				return null;
+			}
+			const chan = await user.createDM();
+			return chan;
 		}
-		const lookupId = id.substring("dm-".length);
-		const user = this.getUserById(client, lookupId);
-		if (!user) {
-			return null;
-		}
-		const chan = await user.createDM();
-		return chan;
 	}
 
 	private getDiscordMsgParserCallbacks(puppetId: number) {

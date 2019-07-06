@@ -73,6 +73,10 @@ async function run() {
 	puppet.on("file", discord.handleMatrixFile.bind(discord));
 	puppet.on("redact", discord.handleMatrixRedact.bind(discord));
 	puppet.on("edit", discord.handleMatrixEdit.bind(discord));
+	puppet.setCreateChanHook(discord.createChan.bind(discord));
+	puppet.setCreateUserHook(discord.createUser.bind(discord));
+	puppet.setGetDmRoomIdHook(discord.getDmRoom.bind(discord));
+	puppet.setListUsersHook(discord.listUsers.bind(discord));
 	puppet.setGetDescHook(async (puppetId: number, data: any, html: boolean): Promise<string> => {
 		let s = "Discord";
 		if (data.username) {
