@@ -337,6 +337,7 @@ export class DiscordClass {
 			d.id = client.user.id;
 			await this.puppet.setUserId(puppetId, client.user.id);
 			await this.puppet.setPuppetData(puppetId, d);
+			await this.puppet.sendStatusMessage(puppetId, "connected");
 		});
 		client.on("message", async (msg: Discord.Message) => {
 			await this.handleDiscordMessage(puppetId, msg);
@@ -467,7 +468,7 @@ export class DiscordClass {
 					return parts.userId;
 				},
 				getChannelId: async (mxid: string) => null,
-				getEmojiId: async (mxc: string, name: string) => null, // TODO: handle emoji
+				getEmoji: async (mxc: string, name: string) => null, // TODO: handle emoji
 				mxcUrlToHttp: (mxc: string) => this.puppet.getUrlFromMxc(mxc),
 			},
 		} as IMatrixMessageParserOpts;
