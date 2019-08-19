@@ -1,0 +1,18 @@
+bridge:
+  # Port to host the bridge on
+  # Used for communication between the homeserver and the bridge
+  port: 8434
+  # Public domain of the homeserver
+  domain: matrix.org
+  # Reachable URL of the Matrix homeserver
+  homeserverUrl: https://matrix.org
+
+provisioning:
+  # Regex of Matrix IDs allowed to use the puppet bridge
+  whitelist:
+    # Allow a specific user
+    #- "@user:server.com"
+    # Allow users on a specific homeserver
+    #- "@.*:yourserver.com"
+    # Allow anyone
+    - ".*"
