@@ -6,6 +6,8 @@ bridge:
   domain: matrix.org
   # Reachable URL of the Matrix homeserver
   homeserverUrl: https://matrix.org
+  # Disable presence functionality
+  disablePresence: false
 
 provisioning:
   # Regex of Matrix IDs allowed to use the puppet bridge
