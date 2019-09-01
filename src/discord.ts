@@ -8,6 +8,7 @@ import {
 	IFileEvent,
 	Util,
 	IRetList,
+	Lock,
 } from "mx-puppet-bridge";
 import * as Discord from "discord.js";
 import {
@@ -23,10 +24,12 @@ import * as mime from "mime";
 const log = new Log("DiscordPuppet:Discord");
 
 const MAXFILESIZE = 8000000;
+const SEND_LOOCK_TIMEOUT = 30000;
 
 interface IDiscordPuppet {
 	client: Discord.Client;
 	data: any;
+	sentEventIds: string[],
 }
 
 interface IDiscordPuppets {
@@ -37,11 +40,13 @@ export class DiscordClass {
 	private puppets: IDiscordPuppets = {};
 	private discordMsgParser: DiscordMessageParser;
 	private matrixMsgParser: MatrixMessageParser;
+	private sendMessageLock: Lock<string>;
 	constructor(
 		private puppet: PuppetBridge,
 	) {
 		this.discordMsgParser = new DiscordMessageParser();
 		this.matrixMsgParser = new MatrixMessageParser();
+		this.sendMessageLock = new Lock(SEND_LOOCK_TIMEOUT);
 	}
 
 	public getRemoteUser(puppetId: number, user: Discord.User): IRemoteUser {
@@ -97,11 +102,13 @@ export class DiscordClass {
 	}
 
 	public async insertNewEventId(puppetId: number, matrixId: string, msgs: Discord.Message | Discord.Message[]) {
+		const p = this.puppets[puppetId];
 		if (!Array.isArray(msgs)) {
 			msgs = [msgs];
 		}
 		for (const m of msgs) {
 			await this.puppet.eventStore.insert(puppetId, matrixId, m.id);
+			p.sentEventIds.push(m.id);
 		}
 	}
 
@@ -117,8 +124,11 @@ export class DiscordClass {
 		}
 
 		const sendMsg = await this.parseMatrixMessage(room.puppetId, event.content);
+		const lockKey = `${room.puppetId};${room.roomId}`;
+		this.sendMessageLock.set(lockKey);
 		const reply = await chan.send(sendMsg);
 		await this.insertNewEventId(room.puppetId, data.eventId!, reply);
+		this.sendMessageLock.release(lockKey);
 	}
 
 	public async handleMatrixFile(room: IRemoteChan, data: IFileEvent, event: any) {
@@ -134,17 +144,21 @@ export class DiscordClass {
 
 		let size = data.info ? data.info.size || 0 : 0;
 		const mimetype = data.info ? data.info.mimetype || "" : "";
+		const lockKey = `${room.puppetId};${room.roomId}`;
 		if (size < MAXFILESIZE) {
 			const attachment = await Util.DownloadFile(data.url);
 			size = attachment.byteLength;
 			if (size < MAXFILESIZE) {
 				// send as attachment
 				const filename = this.getFilenameForMedia(data.filename, mimetype);
+				this.sendMessageLock.set(lockKey);
 				const reply = await chan!.send(new Discord.Attachment(attachment, filename));
 				await this.insertNewEventId(room.puppetId, data.eventId!, reply);
+				this.sendMessageLock.release(lockKey);
 				return;
 			}
 		}
+		this.sendMessageLock.set(lockKey);
 		if (mimetype && mimetype.split("/")[0] === "image") {
 			const embed = new Discord.RichEmbed()
 				.setTitle(data.filename)
@@ -155,6 +169,7 @@ export class DiscordClass {
 			const reply = await chan.send(`Uploaded File: [${data.filename}](${data.url})`);
 			await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 		}
+		this.sendMessageLock.release(lockKey);
 	}
 
 	public async handleMatrixRedact(room: IRemoteChan, eventId: string, event: any) {
@@ -231,8 +246,11 @@ export class DiscordClass {
 				replyEmbed.description += `[${attach.filename}](attach.proxyURL)`;
 			}
 		}
+		const lockKey = `${room.puppetId};${room.roomId}`;
+		this.sendMessageLock.set(lockKey);
 		const reply = await chan.send(sendMsg, replyEmbed);
 		await this.insertNewEventId(room.puppetId, data.eventId!, reply);
+		this.sendMessageLock.release(lockKey);
 	}
 
 	public async handleMatrixReaction(room: IRemoteChan, eventId: string, reaction: string, event: any) {
@@ -258,15 +276,20 @@ export class DiscordClass {
 		if (!p) {
 			return;
 		}
-		if (msg.author.id === p.client.user.id) {
-			return; // TODO: proper filtering for double-puppetting
-		}
 		log.info("Received new message!");
 		if (!this.bridgeChannel(puppetId, msg.channel)) {
 			log.info("Only handling DM channels, dropping message...");
 			return;
 		}
 		const params = this.getSendParams(puppetId, msg);
+		const lockKey = `${puppetId};${params.chan.roomId}`;
+		await this.sendMessageLock.wait(lockKey);
+		if (msg.author.id === p.client.user.id && p.sentEventIds.includes(msg.id)) {
+			// dedupe message
+			const ix = p.sentEventIds.indexOf(msg.id);
+			p.sentEventIds.splice(ix, 1);
+			return;
+		}
 		for ( const [_, attachment] of Array.from(msg.attachments)) {
 			await this.puppet.sendFileDetect(params, attachment.url, attachment.filename);
 		}
@@ -388,6 +411,7 @@ export class DiscordClass {
 		this.puppets[puppetId] = {
 			client,
 			data,
+			sentEventIds: [],
 		};
 		await client.login(data.token);
 	}
