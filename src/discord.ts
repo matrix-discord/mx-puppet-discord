@@ -29,7 +29,7 @@ const SEND_LOOCK_TIMEOUT = 30000;
 interface IDiscordPuppet {
 	client: Discord.Client;
 	data: any;
-	sentEventIds: string[],
+	sentEventIds: string[];
 }
 
 interface IDiscordPuppets {
@@ -159,7 +159,7 @@ export class DiscordClass {
 			}
 		}
 		this.sendMessageLock.set(lockKey);
-		if (mimetype && mimetype.split("/")[0] === "image") {
+		if (mimetype && mimetype.split("/")[0] === "image" && p.client.user.bot) {
 			const embed = new Discord.RichEmbed()
 				.setTitle(data.filename)
 				.setImage(data.url);
@@ -179,7 +179,7 @@ export class DiscordClass {
 		}
 		const chan = await this.getDiscordChan(p.client, room.roomId);
 		if (!chan) {
-			log.warn("Channel not found", room);
+			log.warn("Channel not foundp.client.user.bot", room);
 			return;
 		}
 		log.verbose(`Deleting message with ID ${eventId}...`);
@@ -225,7 +225,7 @@ export class DiscordClass {
 		if (!msg) {
 			return;
 		}
-		const sendMsg = await this.parseMatrixMessage(room.puppetId, event.content);
+		let sendMsg = await this.parseMatrixMessage(room.puppetId, event.content);
 		const replyEmbed = new Discord.RichEmbed()
 			.setTimestamp(new Date(msg.createdAt))
 			.setDescription(msg.content)
@@ -248,7 +248,13 @@ export class DiscordClass {
 		}
 		const lockKey = `${room.puppetId};${room.roomId}`;
 		this.sendMessageLock.set(lockKey);
-		const reply = await chan.send(sendMsg, replyEmbed);
+		let reply;
+		if (p.client.user.bot) {
+			reply = await chan.send(sendMsg, replyEmbed);
+		} else {
+			sendMsg += `\n>>> ${replyEmbed.description}`;
+			reply = await chan.send(sendMsg);
+		}
 		await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 		this.sendMessageLock.release(lockKey);
 	}
