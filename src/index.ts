@@ -8,7 +8,6 @@ import {
 import * as commandLineArgs from "command-line-args";
 import * as commandLineUsage from "command-line-usage";
 import { DiscordClass } from "./discord";
-import * as escapeHtml from "escape-html";
 
 const log = new Log("DiscordPuppet:index");
 
@@ -80,21 +79,13 @@ async function run() {
 	puppet.setCreateUserHook(discord.createUser.bind(discord));
 	puppet.setGetDmRoomIdHook(discord.getDmRoom.bind(discord));
 	puppet.setListUsersHook(discord.listUsers.bind(discord));
-	puppet.setGetDescHook(async (puppetId: number, data: any, html: boolean): Promise<string> => {
+	puppet.setGetDescHook(async (puppetId: number, data: any): Promise<string> => {
 		let s = "Discord";
 		if (data.username) {
-			if (html) {
-				s += ` as <code>${escapeHtml(data.username)}</code>`;
-			} else {
-				s += ` as ${data.username}`;
-			}
+			s += ` as \`${data.username}\``;
 		}
 		if (data.id) {
-			if (html) {
-				s += ` (<code>${escapeHtml(data.id)}</code>)`;
-			} else {
-				s += ` (${data.id})`;
-			}
+			s += ` (\`${data.id}\`)`;
 		}
 		return s;
 	});
