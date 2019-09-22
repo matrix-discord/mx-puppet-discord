@@ -318,24 +318,40 @@ export class DiscordClass {
 		if (!p) {
 			return;
 		}
-		if (msg1.author.id === p.client.user.id) {
-			return; // TODO: proper filtering for double-puppetting
+		const params = this.getSendParams(puppetId, msg1);
+		const lockKey = `${puppetId};${params.chan.roomId}`;
+		await this.sendMessageLock.wait(lockKey);
+		if (msg1.author.id === p.client.user.id && p.sentEventIds.includes(msg1.id)) {
+			// dedupe message
+			const ix = p.sentEventIds.indexOf(msg1.id);
+			p.sentEventIds.splice(ix, 1);
+			return;
 		}
 		if (!this.bridgeChannel(puppetId, msg1.channel)) {
 			log.info("Only handling DM channels, dropping message...");
 			return;
 		}
-		const params = this.getSendParams(puppetId, msg1);
 		const opts = {
 			callbacks: this.getDiscordMsgParserCallbacks(puppetId),
 		} as IDiscordMessageParserOpts;
 		const reply = await this.discordMsgParser.FormatMessage(opts, msg2);
-		await this.puppet.sendEdit(params, msg1.id, {
-			body: reply.body,
-			formattedBody: reply.formattedBody,
-			emote: reply.msgtype === "m.emote",
-			notice: reply.msgtype === "m.notice",
-		});
+		if (msg1.content) {
+			// okay we have an actual edit
+			await this.puppet.sendEdit(params, msg1.id, {
+				body: reply.body,
+				formattedBody: reply.formattedBody,
+				emote: reply.msgtype === "m.emote",
+				notice: reply.msgtype === "m.notice",
+			}, -1);
+		} else {
+			// we actually just want to insert a new message
+			await this.puppet.sendMessage(params, {
+				body: reply.body,
+				formattedBody: reply.formattedBody,
+				emote: reply.msgtype === "m.emote",
+				notice: reply.msgtype === "m.notice",
+			});
+		}
 	}
 
 	public async handleDiscordMessageDelete(puppetId: number, msg: Discord.Message) {
@@ -343,14 +359,19 @@ export class DiscordClass {
 		if (!p) {
 			return;
 		}
-		if (msg.author.id === p.client.user.id) {
-			return; // TODO: proper filtering for double-puppetting
+		const params = this.getSendParams(puppetId, msg);
+		const lockKey = `${puppetId};${params.chan.roomId}`;
+		await this.sendMessageLock.wait(lockKey);
+		if (msg.author.id === p.client.user.id && p.sentEventIds.includes(msg.id)) {
+			// dedupe message
+			const ix = p.sentEventIds.indexOf(msg.id);
+			p.sentEventIds.splice(ix, 1);
+			return;
 		}
 		if (!this.bridgeChannel(puppetId, msg.channel)) {
 			log.info("Only handling DM channels, dropping message...");
 			return;
 		}
-		const params = this.getSendParams(puppetId, msg);
 		await this.puppet.sendRedact(params, msg.id);
 	}
 
