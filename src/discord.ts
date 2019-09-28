@@ -58,9 +58,14 @@ export class DiscordClass {
 		};
 	}
 
-	public getRemoteChan(puppetId: number, channel: Discord.Channel, dmId: string): IRemoteChan {
+	public getRemoteChan(puppetId: number, channel: Discord.Channel): IRemoteChan {
+		const p = this.puppets[puppetId];
+		let roomId = channel.id;
+		if (channel.type === "dm") {
+			roomId = `dm-${(channel as Discord.DMChannel).recipient.id}`;
+		}
 		const ret = {
-			roomId: channel.type === "dm" ? dmId : channel.id,
+			roomId,
 			puppetId,
 			isDirect: channel.type === "dm",
 		} as IRemoteChan;
@@ -81,7 +86,7 @@ export class DiscordClass {
 		if (!chan) {
 			return null;
 		}
-		return this.getRemoteChan(puppetId, chan, id);
+		return this.getRemoteChan(puppetId, chan);
 	}
 
 	public getSendParams(puppetId: number, msg: Discord.Message | Discord.Channel, user?: Discord.User): IReceiveParams {
@@ -95,7 +100,7 @@ export class DiscordClass {
 			channel = msg as Discord.Channel;
 		}
 		return {
-			chan: this.getRemoteChan(puppetId, channel, `dm-${user.id}`),
+			chan: this.getRemoteChan(puppetId, channel),
 			user: this.getRemoteUser(puppetId, user),
 			eventId,
 		} as IReceiveParams;
