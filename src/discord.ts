@@ -20,6 +20,7 @@ import {
 } from "matrix-discord-parser";
 import * as path from "path";
 import * as mime from "mime";
+import { DiscordStore } from "./store";
 
 const log = new Log("DiscordPuppet:Discord");
 
@@ -41,12 +42,18 @@ export class DiscordClass {
 	private discordMsgParser: DiscordMessageParser;
 	private matrixMsgParser: MatrixMessageParser;
 	private sendMessageLock: Lock<string>;
+	private store: DiscordStore;
 	constructor(
 		private puppet: PuppetBridge,
 	) {
 		this.discordMsgParser = new DiscordMessageParser();
 		this.matrixMsgParser = new MatrixMessageParser();
 		this.sendMessageLock = new Lock(SEND_LOOCK_TIMEOUT);
+		this.store = new DiscordStore(puppet.store);
+	}
+
+	public async init(): Promise<void> {
+		await this.store.init();
 	}
 
 	public getRemoteUser(puppetId: number, user: Discord.User): IRemoteUser {
@@ -585,7 +592,26 @@ export class DiscordClass {
 				};
 			},
 			getChannel: async (id: string) => null, // we don't handle channels
-			getEmoji: async (name: string, animated: boolean, id: string) => null, // TODO: handle emoji
+			getEmoji: async (name: string, animated: boolean, id: string) => {
+				let emoji = await this.store.getEmoji(id);
+				if (emoji) {
+					return emoji.mxcUrl;
+				}
+				const url = `https://cdn.discordapp.com/emojis/${id}${animated ? ".gif" : ".png"}`;
+				const buffer = await Util.DownloadFile(url);
+				const mxcUrl = await this.puppet.botIntent.underlyingClient.uploadContent(
+					buffer,
+					Util.GetMimeType(buffer),
+				);
+				emoji = {
+					emojiId: id,
+					name,
+					animated,
+					mxcUrl,
+				};
+				await this.store.setEmoji(emoji);
+				return emoji.mxcUrl;
+			},
 		} as IDiscordMessageParserCallbacks;
 	}
 

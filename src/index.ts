@@ -67,6 +67,7 @@ if (options.register) {
 async function run() {
 	await puppet.init();
 	const discord = new DiscordClass(puppet);
+	await discord.init();
 	puppet.on("puppetNew", discord.newPuppet.bind(discord));
 	puppet.on("puppetDelete", discord.deletePuppet.bind(discord));
 	puppet.on("message", discord.handleMatrixMessage.bind(discord));
