@@ -326,6 +326,9 @@ export class DiscordClass {
 	}
 
 	public async handleDiscordMessageUpdate(puppetId: number, msg1: Discord.Message, msg2: Discord.Message) {
+		if (msg1.content === msg2.content) {
+			return; // nothing to do
+		}
 		const p = this.puppets[puppetId];
 		if (!p) {
 			return;
