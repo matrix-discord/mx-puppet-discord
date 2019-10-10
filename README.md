@@ -85,3 +85,23 @@ First [retrieve your Discord User Token](https://discordhelp.net/discord-token).
 
 Then send the bot a message with the contents `link your.token-here`.
 
+## Docker
+
+Build docker image:
+
+    docker build -t mx-puppet-discord .
+
+You may want some changes in your config.yaml:
+
+```yaml
+bindAddress: 0.0.0.0
+filename: '/data/database.db'
+file: '/data/bridge.log'
+```
+
+Once the bridge has generated the `discord-registration.yaml` edit it to fix the
+address so that your matrix home server can connect to the bridge:
+
+```yaml
+url: 'http://discord:8434'
+```
