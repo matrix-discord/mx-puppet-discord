@@ -10,7 +10,7 @@ import {
 	IRetList,
 	Lock,
 } from "mx-puppet-bridge";
-import * as Discord from "discord.js";
+import * as Discord from "better-discord.js";
 import {
 	IDiscordMessageParserOpts,
 	DiscordMessageParser,
@@ -76,6 +76,11 @@ export class DiscordClass {
 			puppetId,
 			isDirect: channel.type === "dm",
 		} as IRemoteChan;
+		if (channel.type === "group") {
+			const groupChannel = channel as Discord.GroupDMChannel;
+			ret.name = groupChannel.name;
+			ret.avatarUrl = groupChannel.iconURL;
+		}
 		if (channel.type === "text") {
 			const textChannel = channel as Discord.TextChannel;
 			ret.name = `#${textChannel.name} - ${textChannel.guild.name}`;
@@ -297,6 +302,9 @@ export class DiscordClass {
 		if (!p) {
 			return;
 		}
+		if (msg.type !== "DEFAULT") {
+			return;
+		}
 		log.info("Received new message!");
 		if (!this.bridgeChannel(puppetId, msg.channel)) {
 			log.info("Only handling DM channels, dropping message...");
@@ -311,14 +319,14 @@ export class DiscordClass {
 			p.sentEventIds.splice(ix, 1);
 			return;
 		}
-		for ( const [_, attachment] of Array.from(msg.attachments)) {
+		for ( const [, attachment] of Array.from(msg.attachments)) {
 			await this.puppet.sendFileDetect(params, attachment.url, attachment.filename);
 		}
 		if (msg.content) {
 			const opts = {
 				callbacks: this.getDiscordMsgParserCallbacks(puppetId),
 			} as IDiscordMessageParserOpts;
-			const reply = await this.discordMsgParser.FormatMessage(opts, msg);
+			const reply = await this.discordMsgParser.FormatMessage(opts, msg as any); // library uses discord.js
 			await this.puppet.sendMessage(params, {
 				body: reply.body,
 				formattedBody: reply.formattedBody,
@@ -352,7 +360,7 @@ export class DiscordClass {
 		const opts = {
 			callbacks: this.getDiscordMsgParserCallbacks(puppetId),
 		} as IDiscordMessageParserOpts;
-		const reply = await this.discordMsgParser.FormatMessage(opts, msg2);
+		const reply = await this.discordMsgParser.FormatMessage(opts, msg2 as any); // library uses discord.js
 		if (msg1.content) {
 			// okay we have an actual edit
 			await this.puppet.sendEdit(params, msg1.id, {
@@ -408,50 +416,82 @@ export class DiscordClass {
 			await this.puppet.sendStatusMessage(puppetId, "connected");
 		});
 		client.on("message", async (msg: Discord.Message) => {
-			await this.handleDiscordMessage(puppetId, msg);
+			try {
+				await this.handleDiscordMessage(puppetId, msg);
+			} catch (err) {
+				log.error("Error handling discord message event", err);
+			}
 		});
 		client.on("messageUpdate", async (msg1: Discord.Message, msg2: Discord.Message) => {
-			await this.handleDiscordMessageUpdate(puppetId, msg1, msg2);
+			try {
+				await this.handleDiscordMessageUpdate(puppetId, msg1, msg2);
+			} catch (err) {
+				log.error("Error handling discord messageUpdate event", err);
+			}
 		});
 		client.on("messageDelete", async (msg: Discord.Message) => {
-			await this.handleDiscordMessageDelete(puppetId, msg);
+			try {
+				await this.handleDiscordMessageDelete(puppetId, msg);
+			} catch (err) {
+				log.error("Error handling discord messageDelete event", err);
+			}
 		});
 		client.on("messageDeleteBulk", async (msgs: Discord.Collection<Discord.Snowflake, Discord.Message>) => {
-			for (const [_, msg] of Array.from(msgs)) {
-				await this.handleDiscordMessageDelete(puppetId, msg);
+			for (const [, msg] of Array.from(msgs)) {
+				try {
+					await this.handleDiscordMessageDelete(puppetId, msg);
+				} catch (err) {
+					log.error("Error handling one discord messageDeleteBulk event", err);
+				}
 			}
 		});
 		client.on("typingStart", async (chan: Discord.Channel, user: Discord.User) => {
-			const params = this.getSendParams(puppetId, chan, user);
-			await this.puppet.setUserTyping(params, true);
+			try {
+				const params = this.getSendParams(puppetId, chan, user);
+				await this.puppet.setUserTyping(params, true);
+			} catch (err) {
+				log.error("Error handling discord typingStart event", err);
+			}
 		});
 		client.on("typingStop", async (chan: Discord.Channel, user: Discord.User) => {
-			const params = this.getSendParams(puppetId, chan, user);
-			await this.puppet.setUserTyping(params, false);
+			try {
+				const params = this.getSendParams(puppetId, chan, user);
+				await this.puppet.setUserTyping(params, false);
+			} catch (err) {
+				log.error("Error handling discord typingStop event", err);
+			}
 		});
 		client.on("presenceUpdate", async (_, member: Discord.GuildMember) => {
-			const user = member.user;
-			const matrixPresence = {
-				online: "online",
-				idle: "unavailable",
-				dnd: "unavailable",
-				offline: "offline",
-			}[user.presence.status] as "online" | "offline" | "unavailable";
-			const statusMsg = member.presence.game ? member.presence.game.name : "";
-			const remoteUser = this.getRemoteUser(puppetId, user);
-			await this.puppet.setUserPresence(remoteUser, matrixPresence);
-			await this.puppet.setUserStatus(remoteUser, statusMsg);
+			try {
+				const user = member.user;
+				const matrixPresence = {
+					online: "online",
+					idle: "unavailable",
+					dnd: "unavailable",
+					offline: "offline",
+				}[user.presence.status] as "online" | "offline" | "unavailable";
+				const statusMsg = member.presence.game ? member.presence.game.name : "";
+				const remoteUser = this.getRemoteUser(puppetId, user);
+				await this.puppet.setUserPresence(remoteUser, matrixPresence);
+				await this.puppet.setUserStatus(remoteUser, statusMsg);
+			} catch (err) {
+				log.error("Error handling discord presenceUpdate event", err);
+			}
 		});
 		client.on("messageReactionAdd", async (reaction: Discord.MessageReaction, user: Discord.User) => {
-			if (reaction.me) {
-				return; // TODO: filter this out better
+			try {
+				if (reaction.me) {
+					return; // TODO: filter this out better
+				}
+				const chan = reaction.message.channel;
+				if (!this.bridgeChannel(puppetId, chan)) {
+					return;
+				}
+				const params = this.getSendParams(puppetId, chan, user);
+				await this.puppet.sendReaction(params, reaction.message.id, reaction.emoji.name);
+			} catch (err) {
+				log.error("Error handling discord messageReactionAdd event", err);
 			}
-			const chan = reaction.message.channel;
-			if (!this.bridgeChannel(puppetId, chan)) {
-				return;
-			}
-			const params = this.getSendParams(puppetId, chan, user);
-			await this.puppet.sendReaction(params, reaction.message.id, reaction.emoji.name);
 		});
 		this.puppets[puppetId] = {
 			client,
@@ -505,12 +545,12 @@ export class DiscordClass {
 		if (!p) {
 			return [];
 		}
-		for (const [_, guild] of Array.from(p.client.guilds)) {
+		for (const [, guild] of Array.from(p.client.guilds)) {
 			ret.push({
 				category: true,
 				name: guild.name,
 			});
-			for (const [__, member] of Array.from(guild.members)) {
+			for (const [, member] of Array.from(guild.members)) {
 				ret.push({
 					name: member.user.username,
 					id: member.user.id,
@@ -521,7 +561,7 @@ export class DiscordClass {
 	}
 
 	private bridgeChannel(puppetId: number, chan: Discord.Channel): boolean {
-		return chan.type === "dm"; // currently we only allow dm bridging
+		return chan.type === "dm" || chan.type === "group"; // currently we only allow dm bridging
 	}
 
 	private async parseMatrixMessage(puppetId: number, eventContent: any): Promise<string> {
@@ -546,8 +586,7 @@ export class DiscordClass {
 	}
 
 	private async getUserById(client: Discord.Client, id: string): Promise<Discord.User | null> {
-		
-		for (const [_, guild] of Array.from(client.guilds)) {
+		for (const [, guild] of Array.from(client.guilds)) {
 			const a = guild.members.find((m) => m.user.id === id);
 			if (a) {
 				return a.user as Discord.User;
@@ -562,13 +601,23 @@ export class DiscordClass {
 
 	private async getDiscordChan(
 		client: Discord.Client, id: string,
-	): Promise<Discord.DMChannel | Discord.TextChannel | null> {
+	): Promise<Discord.DMChannel | Discord.TextChannel | Discord.GroupDMChannel | null> {
 		if (!id.startsWith("dm-")) {
-			// we have a guild textChannel
-			for (const [_, guild] of Array.from(client.guilds)) {
-				const chan = guild.channels.get(id);
-				if (chan && chan.type === "text") {
+			// first fetch from the client channel cache
+			const chan = client.channels.get(id);
+			if (chan) {
+				if (chan.type === "group") {
+					return chan as Discord.GroupDMChannel;
+				}
+				if (chan.type === "text") {
 					return chan as Discord.TextChannel;
+				}
+			}
+			// next iterate over all the guild channels
+			for (const [, guild] of Array.from(client.guilds)) {
+				const c = guild.channels.get(id);
+				if (c && c.type === "text") {
+					return c as Discord.TextChannel;
 				}
 			}
 			return null; // nothing found

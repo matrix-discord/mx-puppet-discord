@@ -11,9 +11,9 @@
   },
   "author": "Sorunome",
   "dependencies": {
+    "better-discord.js": "git+https://github.com/Sorunome/better-discord.js.git#782681926a73aae51782fe004a40cd7627d64d57",
     "command-line-args": "^5.1.1",
     "command-line-usage": "^5.0.5",
-    "discord.js": "^11.5.1",
     "events": "^3.0.0",
     "js-yaml": "^3.13.1",
     "matrix-discord-parser": "0.0.3",
