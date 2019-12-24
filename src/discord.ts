@@ -360,7 +360,7 @@ export class DiscordClass {
 				formattedBody: reply.formattedBody,
 				emote: reply.msgtype === "m.emote",
 				notice: reply.msgtype === "m.notice",
-			}, -1);
+			});
 		} else {
 			// we actually just want to insert a new message
 			await this.puppet.sendMessage(params, {
