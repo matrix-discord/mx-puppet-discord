@@ -480,7 +480,7 @@ export class DiscordClass {
 		if (!p) {
 			return null;
 		}
-		const u = this.getUserById(p.client, user.userId);
+		const u = await this.getUserById(p.client, user.userId);
 		if (!u) {
 			return null;
 		}
@@ -492,7 +492,7 @@ export class DiscordClass {
 		if (!p) {
 			return null;
 		}
-		const u = this.getUserById(p.client, user.userId);
+		const u = await this.getUserById(p.client, user.userId);
 		if (!u) {
 			return null;
 		}
@@ -545,12 +545,17 @@ export class DiscordClass {
 		return msg;
 	}
 
-	private getUserById(client: Discord.Client, id: string): Discord.User | null {
+	private async getUserById(client: Discord.Client, id: string): Promise<Discord.User | null> {
+		
 		for (const [_, guild] of Array.from(client.guilds)) {
 			const a = guild.members.find((m) => m.user.id === id);
 			if (a) {
 				return a.user as Discord.User;
 			}
+		}
+		const user = await client.fetchUser(id);
+		if (user) {
+			return user;
 		}
 		return null;
 	}
@@ -570,7 +575,7 @@ export class DiscordClass {
 		} else {
 			// we have a DM channel
 			const lookupId = id.substring("dm-".length);
-			const user = this.getUserById(client, lookupId);
+			const user = await this.getUserById(client, lookupId);
 			if (!user) {
 				return null;
 			}
@@ -588,7 +593,7 @@ export class DiscordClass {
 					userId: id,
 				});
 				let name = mxid;
-				const user = this.getUserById(p.client, id);
+				const user = await this.getUserById(p.client, id);
 				if (user) {
 					name = user.username;
 				}
