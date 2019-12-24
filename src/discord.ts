@@ -218,8 +218,11 @@ export class DiscordClass {
 			return;
 		}
 		const sendMsg = await this.parseMatrixMessage(room.puppetId, event.content["m.new_content"]);
+		const lockKey = `${room.puppetId};${room.roomId}`;
+		this.sendMessageLock.set(lockKey);
 		const reply = await msg.edit(sendMsg);
 		await this.insertNewEventId(room.puppetId, data.eventId!, reply);
+		this.sendMessageLock.release(lockKey);
 	}
 
 	public async handleMatrixReply(room: IRemoteChan, eventId: string, data: IMessageEvent, event: any) {
