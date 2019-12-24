@@ -3,10 +3,10 @@ import { Store } from "mx-puppet-bridge";
 const CURRENT_SCHEMA = 1;
 
 export class IDbEmoji {
-	emojiId: string;
-	name: string;
-	animated: boolean;
-	mxcUrl: string;
+	public emojiId: string;
+	public name: string;
+	public animated: boolean;
+	public mxcUrl: string;
 }
 
 export class DiscordStore {
