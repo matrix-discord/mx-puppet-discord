@@ -610,6 +610,7 @@ export class DiscordClass {
 			if (guilds.includes(guild.id)) {
 				sendStrPart += " **bridged!**";
 			}
+			sendStrPart += "\n";
 			if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
 				await sendMessage(sendStr);
 				sendStr = "";
@@ -647,6 +648,74 @@ export class DiscordClass {
 		}
 		await this.store.removeBridgedGuild(puppetId, param);
 		await sendMessage("Unbridged guild!");
+	}
+
+	public async commandListFriends(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		let sendStr = "Friends:\n";
+		for (const [, user] of p.client.user.friends) {
+			const mxid = await this.puppet.getMxidForUser({
+				puppetId,
+				userId: user.id,
+			});
+			let sendStrPart = ` - ${user.username} (\`${user.id}\`): [${user.username}](https://matrix.to/#/${mxid})\n`;
+			if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
+				await sendMessage(sendStr);
+				sendStr = "";
+			}
+			sendStr += sendStrPart;
+		}
+		sendStr += "\nIncoming friend requests:\n";
+		for (const [, user] of p.client.user.incomingFriendRequests) {
+			let sendStrPart = ` - ${user.username} (\`${user.id}\`)\n`;
+			if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
+				await sendMessage(sendStr);
+				sendStr = "";
+			}
+			sendStr += sendStrPart;
+		}
+		sendStr += "\nOutgoing friend requests:\n";
+		for (const [, user] of p.client.user.outgoingFriendRequests) {
+			let sendStrPart = ` - ${user.username} (\`${user.id}\`)\n`;
+			if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
+				await sendMessage(sendStr);
+				sendStr = "";
+			}
+			sendStr += sendStrPart;
+		}
+		await sendMessage(sendStr);
+	}
+
+	public async commandAddFriend(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		const user = await p.client.user.addFriend(param);
+		if (user) {
+			await sendMessage(`Added/sent friend request to ${user.username}!`);
+		} else {
+			await sendMessage("User not found");
+		}
+	}
+
+	public async commandRemoveFriend(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		const user = await p.client.user.removeFriend(param);
+		if (user) {
+			await sendMessage(`Removed ${user.username} as friend!`);
+		} else {
+			await sendMessage("User not found");
+		}
 	}
 
 	private async bridgeChannel(puppetId: number, chan: Discord.Channel): Promise<boolean> {
@@ -689,9 +758,17 @@ export class DiscordClass {
 				return a.user as Discord.User;
 			}
 		}
-		const user = await client.fetchUser(id);
-		if (user) {
-			return user;
+		{
+			const user = client.user.friends.get(id);
+			if (user) {
+				return user;
+			}
+		}
+		{
+			const user = await client.fetchUser(id);
+			if (user) {
+				return user;
+			}
 		}
 		return null;
 	}

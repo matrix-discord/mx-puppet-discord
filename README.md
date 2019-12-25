@@ -85,6 +85,22 @@ First [retrieve your Discord User Token](https://discordhelp.net/discord-token).
 
 Then send the bot a message with the contents `link your.token-here`.
 
+### Guild management
+
+As most users are in many guilds none are bridged by default. You can, however, enable bridging a guild. For that use `listguilds <puppetId>`, e.g. `listguilds 1`. (Puppet ID can be found with `list`.)
+
+Then, to bridge a guild, type `bridgeguild <puppetId> <guildId>` and to unbridge it type `unbridgeguild <puppetId> <guildId>`
+
+### Friends management
+
+**IMPORTANT! This is a USER-token ONLY feature, and as such against discords TOS. When developing this test-accounts got softlocked, USE AT YOUR OWN RISK!**
+
+You can view all friends and invitation status with `listfriends <puppetId>`.
+
+You can accept a friends request / send a friends request with `addfriend <puppetId> <user>` where `<user>` is either the user ID (preferred) or the `username#1234`.
+
+You can remove friends with `removefriend <puppetId> <userId>`.
+
 ## Docker
 
 Build docker image:

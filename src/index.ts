@@ -120,6 +120,18 @@ async function run() {
 		fn: discord.commandUnbridgeGuild.bind(discord),
 		help: "Unbridge a guild",
 	});
+	puppet.registerCommand("listfriends", {
+		fn: discord.commandListFriends.bind(discord),
+		help: "List all your current friends",
+	});
+	puppet.registerCommand("addfriend", {
+		fn: discord.commandAddFriend.bind(discord),
+		help: "Add a new friend",
+	});
+	puppet.registerCommand("removefriend", {
+		fn: discord.commandRemoveFriend.bind(discord),
+		help: "Remove a friend",
+	});
 	await puppet.start();
 }
 
