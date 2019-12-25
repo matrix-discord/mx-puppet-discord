@@ -108,6 +108,18 @@ async function run() {
 	puppet.setBotHeaderMsgHook((): string => {
 		return "Discord Puppet Bridge";
 	});
+	puppet.registerCommand("listguilds", {
+		fn: discord.commandListGuilds.bind(discord),
+		help: "List all guilds that are currently bridged",
+	});
+	puppet.registerCommand("bridgeguild", {
+		fn: discord.commandBridgeGuild.bind(discord),
+		help: "Bridge a guild",
+	});
+	puppet.registerCommand("unbridgeguild", {
+		fn: discord.commandUnbridgeGuild.bind(discord),
+		help: "Unbridge a guild",
+	});
 	await puppet.start();
 }
 

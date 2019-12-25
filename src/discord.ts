@@ -9,6 +9,7 @@ import {
 	Util,
 	IRetList,
 	Lock,
+	SendMessageFn,
 } from "mx-puppet-bridge";
 import * as Discord from "better-discord.js";
 import {
@@ -26,6 +27,7 @@ const log = new Log("DiscordPuppet:Discord");
 
 const MAXFILESIZE = 8000000;
 const SEND_LOOCK_TIMEOUT = 30000;
+const MAX_MSG_SIZE = 4000;
 
 interface IDiscordPuppet {
 	client: Discord.Client;
@@ -305,8 +307,8 @@ export class DiscordClass {
 			return;
 		}
 		log.info("Received new message!");
-		if (!this.bridgeChannel(puppetId, msg.channel)) {
-			log.info("Only handling DM channels, dropping message...");
+		if (!await this.bridgeChannel(puppetId, msg.channel)) {
+			log.info("Unhandled channel, dropping message...");
 			return;
 		}
 		const params = this.getSendParams(puppetId, msg);
@@ -352,8 +354,8 @@ export class DiscordClass {
 			p.sentEventIds.splice(ix, 1);
 			return;
 		}
-		if (!this.bridgeChannel(puppetId, msg1.channel)) {
-			log.info("Only handling DM channels, dropping message...");
+		if (!await this.bridgeChannel(puppetId, msg1.channel)) {
+			log.info("Unhandled channel, dropping message...");
 			return;
 		}
 		const opts = {
@@ -393,8 +395,8 @@ export class DiscordClass {
 			p.sentEventIds.splice(ix, 1);
 			return;
 		}
-		if (!this.bridgeChannel(puppetId, msg.channel)) {
-			log.info("Only handling DM channels, dropping message...");
+		if (!await this.bridgeChannel(puppetId, msg.channel)) {
+			log.info("Unhandled channel, dropping message...");
 			return;
 		}
 		await this.puppet.sendRedact(params, msg.id);
@@ -483,7 +485,7 @@ export class DiscordClass {
 					return; // TODO: filter this out better
 				}
 				const chan = reaction.message.channel;
-				if (!this.bridgeChannel(puppetId, chan)) {
+				if (!await this.bridgeChannel(puppetId, chan)) {
 					return;
 				}
 				const params = this.getSendParams(puppetId, chan, user);
@@ -595,8 +597,68 @@ export class DiscordClass {
 		return retGroups.concat(retGuilds);
 	}
 
-	private bridgeChannel(puppetId: number, chan: Discord.Channel): boolean {
-		return chan.type === "dm" || chan.type === "group"; // currently we only allow dm bridging
+	public async commandListGuilds(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		const guilds = await this.store.getBridgedGuilds(puppetId);
+		let sendStr = "Guilds:\n";
+		for (const [, guild] of Array.from(p.client.guilds)) {
+			let sendStrPart = ` - ${guild.name} (\`${guild.id}\`)`;
+			if (guilds.includes(guild.id)) {
+				sendStrPart += " **bridged!**";
+			}
+			if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
+				await sendMessage(sendStr);
+				sendStr = "";
+			}
+			sendStr += sendStrPart;
+		}
+		await sendMessage(sendStr);
+	}
+
+	public async commandBridgeGuild(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		const guild = p.client.guilds.get(param);
+		if (!guild) {
+			await sendMessage("Guild not found!");
+			return;
+		}
+		await this.store.setBridgedGuild(puppetId, param);
+		await sendMessage(`Guild ${guild.name} (\`${guild.id}\`) is now been bridged!`);
+	}
+
+	public async commandUnbridgeGuild(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		const bridged = await this.store.isGuildBridged(puppetId, param);
+		if (!bridged) {
+			await sendMessage("Guild wasn't bridged!");
+			return;
+		}
+		await this.store.removeBridgedGuild(puppetId, param);
+		await sendMessage("Unbridged guild!");
+	}
+
+	private async bridgeChannel(puppetId: number, chan: Discord.Channel): Promise<boolean> {
+		if (["dm", "group"].includes(chan.type)) {
+			return true; // we handle all dm and group channels
+		}
+		if (chan.type === "text") {
+			// we have a guild text channel, maybe we handle it!
+			const textChan = chan as Discord.TextChannel;
+			return await this.store.isGuildBridged(puppetId, textChan.guild.id);
+		}
+		return false;
 	}
 
 	private async parseMatrixMessage(puppetId: number, eventContent: any): Promise<string> {
