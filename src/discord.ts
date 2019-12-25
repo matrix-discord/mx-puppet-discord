@@ -540,24 +540,39 @@ export class DiscordClass {
 	}
 
 	public async listUsers(puppetId: number): Promise<IRetList[]> {
-		const ret: IRetList[] = [];
+		const retUsers: IRetList[] = [];
+		const retGuilds: IRetList[] = [];
 		const p = this.puppets[puppetId];
 		if (!p) {
 			return [];
 		}
+		const blacklistedIds = [p.client.user.id, "1"];
 		for (const [, guild] of Array.from(p.client.guilds)) {
-			ret.push({
+			retGuilds.push({
 				category: true,
 				name: guild.name,
 			});
 			for (const [, member] of Array.from(guild.members)) {
-				ret.push({
-					name: member.user.username,
-					id: member.user.id,
+				if (!blacklistedIds.includes(member.user.id)) {
+					retGuilds.push({
+						name: member.user.username,
+						id: member.user.id,
+					});
+				}
+			}
+		}
+
+		for (const [, user] of Array.from(p.client.users)) {
+			const found = retGuilds.find((element) => element.id === user.id);
+			if (!found && !blacklistedIds.includes(user.id)) {
+				retUsers.push({
+					name: user.username,
+					id: user.id,
 				});
 			}
 		}
-		return ret;
+
+		return retUsers.concat(retGuilds);
 	}
 
 	private bridgeChannel(puppetId: number, chan: Discord.Channel): boolean {
