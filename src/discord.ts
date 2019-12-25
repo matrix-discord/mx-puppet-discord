@@ -650,10 +650,37 @@ export class DiscordClass {
 		await sendMessage("Unbridged guild!");
 	}
 
+	public async commandEnableFriendsManagement(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		if (p.data.friendsManagement) {
+			await sendMessage("Friends management is already enabled.");
+			return;
+		}
+		if (param === "YES I KNOW THE RISKS") {
+			p.data.friendsManagement = true;
+			await this.puppet.setPuppetData(puppetId, p.data);
+			await sendMessage("Friends management enabled!");
+			return;
+		}
+		await sendMessage(`Using user accounts is against discords TOS. As this is required for friends management, you ` +
+			`will be breaking discords TOS if you enable this feature. Development of it has already softlocked accounts. ` +
+			`USE AT YOUR OWN RISK!\n\nIf you want to enable friends management type \`enablefriendsmanagement ${puppetId} ` +
+			`YES I KNOW THE RISKS\``);
+	}
+
 	public async commandListFriends(puppetId: number, param: string, sendMessage: SendMessageFn) {
 		const p = this.puppets[puppetId];
 		if (!p) {
 			await sendMessage("Puppet not found!");
+			return;
+		}
+		if (!p.data.friendsManagement) {
+			await sendMessage(`Friends management is disabled. Please type ` +
+				`\`enablefriendsmanagement ${puppetId}\` to enable it`);
 			return;
 		}
 		let sendStr = "Friends:\n";
@@ -662,7 +689,7 @@ export class DiscordClass {
 				puppetId,
 				userId: user.id,
 			});
-			let sendStrPart = ` - ${user.username} (\`${user.id}\`): [${user.username}](https://matrix.to/#/${mxid})\n`;
+			const sendStrPart = ` - ${user.username} (\`${user.id}\`): [${user.username}](https://matrix.to/#/${mxid})\n`;
 			if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
 				await sendMessage(sendStr);
 				sendStr = "";
@@ -671,7 +698,7 @@ export class DiscordClass {
 		}
 		sendStr += "\nIncoming friend requests:\n";
 		for (const [, user] of p.client.user.incomingFriendRequests) {
-			let sendStrPart = ` - ${user.username} (\`${user.id}\`)\n`;
+			const sendStrPart = ` - ${user.username} (\`${user.id}\`)\n`;
 			if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
 				await sendMessage(sendStr);
 				sendStr = "";
@@ -680,7 +707,7 @@ export class DiscordClass {
 		}
 		sendStr += "\nOutgoing friend requests:\n";
 		for (const [, user] of p.client.user.outgoingFriendRequests) {
-			let sendStrPart = ` - ${user.username} (\`${user.id}\`)\n`;
+			const sendStrPart = ` - ${user.username} (\`${user.id}\`)\n`;
 			if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
 				await sendMessage(sendStr);
 				sendStr = "";
@@ -696,6 +723,11 @@ export class DiscordClass {
 			await sendMessage("Puppet not found!");
 			return;
 		}
+		if (!p.data.friendsManagement) {
+			await sendMessage(`Friends management is disabled. Please type ` +
+				`\`enablefriendsmanagement ${puppetId}\` to enable it`);
+			return;
+		}
 		const user = await p.client.user.addFriend(param);
 		if (user) {
 			await sendMessage(`Added/sent friend request to ${user.username}!`);
@@ -708,6 +740,11 @@ export class DiscordClass {
 		const p = this.puppets[puppetId];
 		if (!p) {
 			await sendMessage("Puppet not found!");
+			return;
+		}
+		if (!p.data.friendsManagement) {
+			await sendMessage(`Friends management is disabled. Please type ` +
+				`\`enablefriendsmanagement ${puppetId}\` to enable it`);
 			return;
 		}
 		const user = await p.client.user.removeFriend(param);

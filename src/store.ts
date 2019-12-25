@@ -56,7 +56,9 @@ export class DiscordStore {
 	}
 
 	public async getBridgedGuilds(puppetId: number): Promise<string[]> {
-		const rows = await this.store.db.All("SELECT guild_id FROM discord_bridged_guilds WHERE puppet_id=$puppetId", { puppetId });
+		const rows = await this.store.db.All("SELECT guild_id FROM discord_bridged_guilds WHERE puppet_id=$puppetId", {
+			puppetId,
+		});
 		const result: string[] = [];
 		for (const row of rows) {
 			result.push(row.guild_id as string);
@@ -83,7 +85,7 @@ export class DiscordStore {
 	}
 
 	public async removeBridgedGuild(puppetId: number, guildId: string): Promise<void> {
-		await this.store.db.Run(`DELETE FROM discord_bridged_guilds WHERE puppet_id=$p AND guild_id=$g`,{
+		await this.store.db.Run(`DELETE FROM discord_bridged_guilds WHERE puppet_id=$p AND guild_id=$g`, {
 			p: puppetId,
 			g: guildId,
 		});

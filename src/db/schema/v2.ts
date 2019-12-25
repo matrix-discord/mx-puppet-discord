@@ -3,7 +3,7 @@ import { IDbSchema, Store } from "mx-puppet-bridge";
 export class Schema implements IDbSchema {
 	public description = "Guilds Bridged";
 	public async run(store: Store) {
-		store.createTable(`
+		await store.createTable(`
 			CREATE TABLE discord_bridged_guilds (
 				id SERIAL PRIMARY KEY,
 				puppet_id INTEGER NOT NULL,

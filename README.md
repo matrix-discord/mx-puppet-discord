@@ -95,6 +95,8 @@ Then, to bridge a guild, type `bridgeguild <puppetId> <guildId>` and to unbridge
 
 **IMPORTANT! This is a USER-token ONLY feature, and as such against discords TOS. When developing this test-accounts got softlocked, USE AT YOUR OWN RISK!**
 
+You first need to enable friends management with `enablefriendsmanagement <puppetId>`.
+
 You can view all friends and invitation status with `listfriends <puppetId>`.
 
 You can accept a friends request / send a friends request with `addfriend <puppetId> <user>` where `<user>` is either the user ID (preferred) or the `username#1234`.
