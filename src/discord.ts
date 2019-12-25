@@ -66,7 +66,6 @@ export class DiscordClass {
 	}
 
 	public getRemoteChan(puppetId: number, channel: Discord.Channel): IRemoteChan {
-		const p = this.puppets[puppetId];
 		let roomId = channel.id;
 		if (channel.type === "dm") {
 			roomId = `dm-${(channel as Discord.DMChannel).recipient.id}`;
@@ -573,6 +572,27 @@ export class DiscordClass {
 		}
 
 		return retUsers.concat(retGuilds);
+	}
+
+	public async listChans(puppetId: number): Promise<IRetList[]> {
+		const retGroups: IRetList[] = [];
+		const retGuilds: IRetList[] = [];
+		const p = this.puppets[puppetId];
+		if (!p) {
+			return [];
+		}
+		for (const [, chan] of Array.from(p.client.channels)) {
+			if (chan.type === "group") {
+				const found = retGuilds.find((element) => element.id === chan.id);
+				if (!found) {
+					retGroups.push({
+						name: (chan as Discord.GroupDMChannel).name,
+						id: chan.id,
+					});
+				}
+			}
+		}
+		return retGroups.concat(retGuilds);
 	}
 
 	private bridgeChannel(puppetId: number, chan: Discord.Channel): boolean {

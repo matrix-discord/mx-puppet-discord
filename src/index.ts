@@ -80,6 +80,7 @@ async function run() {
 	puppet.setCreateUserHook(discord.createUser.bind(discord));
 	puppet.setGetDmRoomIdHook(discord.getDmRoom.bind(discord));
 	puppet.setListUsersHook(discord.listUsers.bind(discord));
+	puppet.setListChansHook(discord.listChans.bind(discord));
 	puppet.setGetDescHook(async (puppetId: number, data: any): Promise<string> => {
 		let s = "Discord";
 		if (data.username) {
