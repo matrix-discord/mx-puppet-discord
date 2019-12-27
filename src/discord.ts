@@ -583,6 +583,50 @@ export class DiscordClass {
 		if (!p) {
 			return [];
 		}
+		const bridgedGuilds = await this.store.getBridgedGuilds(puppetId);
+		for (const [, guild] of Array.from(p.client.guilds)) {
+			if (!bridgedGuilds.includes(guild.id)) {
+				continue;
+			}
+			retGuilds.push({
+				category: true,
+				name: guild.name,
+			});
+			// first we iterate over the non-sorted channels
+			for (const [, chan] of Array.from(guild.channels)) {
+				const permissions = chan.memberPermissions(p.client.user);
+				if (!chan.parentID && chan.type === "text" &&
+					(!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
+					retGuilds.push({
+						name: (chan as Discord.TextChannel).name,
+						id: chan.id,
+					});
+				}
+			}
+			// next we iterate over the categories and all their children
+			for (const [, catt] of Array.from(guild.channels)) {
+				if (catt.type !== "category") {
+					continue;
+				}
+				const cat = catt as Discord.CategoryChannel;
+				const catPermissions = cat.memberPermissions(p.client.user);
+				if (!catPermissions || catPermissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number)) {
+					retGuilds.push({
+						category: true,
+						name: `${guild.name} - ${cat.name}`,
+					});
+					for (const [, chan] of Array.from(cat.children)) {
+						const permissions = chan.memberPermissions(p.client.user);
+						if (chan.type === "text" && (!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
+							retGuilds.push({
+								name: (chan as Discord.TextChannel).name,
+								id: chan.id,
+							});
+						}
+					}
+				}
+			}
+		}
 		for (const [, chan] of Array.from(p.client.channels)) {
 			if (chan.type === "group") {
 				const found = retGuilds.find((element) => element.id === chan.id);
