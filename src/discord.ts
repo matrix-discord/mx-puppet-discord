@@ -105,10 +105,17 @@ export class DiscordClass {
 	public getSendParams(puppetId: number, msg: Discord.Message | Discord.Channel, user?: Discord.User): IReceiveParams {
 		let channel: Discord.Channel;
 		let eventId: string | undefined;
+		let externalUrl: string | undefined;
 		if (!user) {
 			channel = (msg as Discord.Message).channel;
 			user = (msg as Discord.Message).author;
 			eventId = (msg as Discord.Message).id;
+			if (channel.type === "text") {
+				const textChannel = channel as Discord.TextChannel;
+				externalUrl = `https://discordapp.com/channels/${textChannel.guild.id}/${textChannel.id}/${eventId}`;
+			} else if (["group", "dm"].includes(channel.type)) {
+				externalUrl = `https://discordapp.com/channels/@me/${channel.id}/${eventId}`;
+			}
 		} else {
 			channel = msg as Discord.Channel;
 		}
@@ -116,6 +123,7 @@ export class DiscordClass {
 			chan: this.getRemoteChan(puppetId, channel),
 			user: this.getRemoteUser(puppetId, user),
 			eventId,
+			externalUrl,
 		} as IReceiveParams;
 	}
 
