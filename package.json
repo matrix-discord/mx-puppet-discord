@@ -16,9 +16,9 @@
     "command-line-usage": "^5.0.5",
     "events": "^3.0.0",
     "js-yaml": "^3.13.1",
-    "matrix-discord-parser": "0.0.3",
+    "matrix-discord-parser": "0.0.3-1",
     "mime": "^2.4.4",
-    "mx-puppet-bridge": "0.0.16-1",
+    "mx-puppet-bridge": "0.0.17",
     "path": "^0.12.7",
     "tslint": "^5.17.0",
     "typescript": "^3.5.2"
