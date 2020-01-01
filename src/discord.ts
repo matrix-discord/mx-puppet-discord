@@ -328,9 +328,12 @@ export class DiscordClass {
 			p.sentEventIds.splice(ix, 1);
 			return;
 		}
+		const externalUrl = params.externalUrl;
 		for ( const [, attachment] of Array.from(msg.attachments)) {
+			params.externalUrl = attachment.url;
 			await this.puppet.sendFileDetect(params, attachment.url, attachment.filename);
 		}
+		params.externalUrl = externalUrl;
 		if (msg.content) {
 			const opts = {
 				callbacks: this.getDiscordMsgParserCallbacks(puppetId),
