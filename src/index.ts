@@ -108,6 +108,10 @@ async function run() {
 	puppet.setBotHeaderMsgHook((): string => {
 		return "Discord Puppet Bridge";
 	});
+	puppet.registerCommand("joinentireguild", {
+		fn: discord.commandJoinEntireGuild.bind(discord),
+		help: "Join all the channels in a guild, if it is bridged",
+	})
 	puppet.registerCommand("listguilds", {
 		fn: discord.commandListGuilds.bind(discord),
 		help: "List all guilds that are currently bridged",

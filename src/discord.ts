@@ -681,6 +681,34 @@ export class DiscordClass {
 		return retGroups.concat(retGuilds);
 	}
 
+	public async commandJoinEntireGuild(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		const guild = p.client.guilds.get(param);
+		if (!guild) {
+			await sendMessage("Guild not found!");
+			return;
+		}
+		if (!(await this.store.isGuildBridged(puppetId, guild.id))) {
+			await sendMessage("Guild not bridged!");
+			return;
+		}
+		for (const [, chan] of guild.channels) {
+			if (chan.type !== "text") {
+				continue;
+			}
+			const permissions = chan.memberPermissions(p.client.user);
+			if (!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number)) {
+				const remoteChan = this.getRemoteChan(puppetId, chan);
+				await this.puppet.bridgeChannel(remoteChan);
+			}
+		}
+		await sendMessage(`Invited to all channels in guild ${guild.name}!`);
+	}
+
 	public async commandListGuilds(puppetId: number, param: string, sendMessage: SendMessageFn) {
 		const p = this.puppets[puppetId];
 		if (!p) {
