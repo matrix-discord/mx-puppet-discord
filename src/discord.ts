@@ -191,7 +191,7 @@ export class DiscordClass {
 					return;
 				} catch (err) {
 					this.sendMessageLock.release(lockKey);
-					log.warn("Couldn't send media message, retrying as embed/url", err)
+					log.warn("Couldn't send media message, retrying as embed/url", err);
 				}
 			}
 		}
@@ -744,7 +744,10 @@ export class DiscordClass {
 			return;
 		}
 		await this.store.setBridgedGuild(puppetId, guild.id);
-		await sendMessage(`Guild ${guild.name} (\`${guild.id}\`) is now been bridged!`);
+		let msg = `Guild ${guild.name} (\`${guild.id}\`) is now being bridged!
+Either type \`joinentireguild ${puppetId} ${guild.id}\` to get invited to all the channels of that guild `;
+		msg += "or type `listchannels` and join that way.";
+		await sendMessage(msg);
 	}
 
 	public async commandUnbridgeGuild(puppetId: number, param: string, sendMessage: SendMessageFn) {
