@@ -595,19 +595,24 @@ export class DiscordClass {
 			return [];
 		}
 		const bridgedGuilds = await this.store.getBridgedGuilds(puppetId);
+		const bridgedChannels = await this.store.getBridgedChannels(puppetId);
 		for (const [, guild] of Array.from(p.client.guilds)) {
-			if (!bridgedGuilds.includes(guild.id)) {
-				continue;
-			}
-			retGuilds.push({
-				category: true,
-				name: guild.name,
-			});
+			let doGuild = false;
 			// first we iterate over the non-sorted channels
 			for (const [, chan] of Array.from(guild.channels)) {
+				if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id)) {
+					continue;
+				}
 				const permissions = chan.memberPermissions(p.client.user);
 				if (!chan.parentID && chan.type === "text" &&
 					(!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
+					if (!doGuild) {
+						doGuild = true;
+						retGuilds.push({
+							category: true,
+							name: guild.name,
+						});
+					}
 					retGuilds.push({
 						name: (chan as Discord.TextChannel).name,
 						id: chan.id,
@@ -622,13 +627,20 @@ export class DiscordClass {
 				const cat = catt as Discord.CategoryChannel;
 				const catPermissions = cat.memberPermissions(p.client.user);
 				if (!catPermissions || catPermissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number)) {
-					retGuilds.push({
-						category: true,
-						name: `${guild.name} - ${cat.name}`,
-					});
+					let doCat = false;
 					for (const [, chan] of Array.from(cat.children)) {
+						if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id)) {
+							continue;
+						}
 						const permissions = chan.memberPermissions(p.client.user);
 						if (chan.type === "text" && (!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
+							if (!doCat) {
+								doCat = true;
+								retGuilds.push({
+									category: true,
+									name: `${guild.name} - ${cat.name}`,
+								});
+							}
 							retGuilds.push({
 								name: (chan as Discord.TextChannel).name,
 								id: chan.id,
@@ -686,7 +698,7 @@ export class DiscordClass {
 			await sendMessage("Guild not found!");
 			return;
 		}
-		await this.store.setBridgedGuild(puppetId, param);
+		await this.store.setBridgedGuild(puppetId, guild.id);
 		await sendMessage(`Guild ${guild.name} (\`${guild.id}\`) is now been bridged!`);
 	}
 
@@ -703,6 +715,45 @@ export class DiscordClass {
 		}
 		await this.store.removeBridgedGuild(puppetId, param);
 		await sendMessage("Unbridged guild!");
+	}
+
+	public async commandBridgeChannel(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		let channel: Discord.TextChannel | undefined;
+		let guild: Discord.Guild | undefined;
+		for (const [, g] of p.client.guilds) {
+			channel = g.channels.get(param) as Discord.TextChannel;
+			if (channel && channel.type === "text") {
+				guild = g;
+				break;
+			}
+			channel = undefined;
+		}
+		if (!channel || !guild) {
+			await sendMessage("Channel not found!");
+			return;
+		}
+		await this.store.setBridgedChannel(puppetId, channel.id);
+		await sendMessage(`Channel ${channel.name} (\`${channel.id}\`) of guild ${guild.name} is now been bridged!`);
+	}
+
+	public async commandUnbridgeChannel(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		const bridged = await this.store.isChannelBridged(puppetId, param);
+		if (!bridged) {
+			await sendMessage("Channel wasn't bridged!");
+			return;
+		}
+		await this.store.removeBridgedChannel(puppetId, param);
+		await sendMessage("Unbridged channel!");
 	}
 
 	public async commandEnableFriendsManagement(puppetId: number, param: string, sendMessage: SendMessageFn) {
@@ -817,7 +868,11 @@ export class DiscordClass {
 		if (chan.type === "text") {
 			// we have a guild text channel, maybe we handle it!
 			const textChan = chan as Discord.TextChannel;
-			return await this.store.isGuildBridged(puppetId, textChan.guild.id);
+			if (await this.store.isGuildBridged(puppetId, textChan.guild.id)) {
+				return true;
+			}
+			// maybe it is a single channel override?
+			return await this.store.isChannelBridged(puppetId, chan.id);
 		}
 		return false;
 	}
