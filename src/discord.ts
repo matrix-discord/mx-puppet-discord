@@ -152,9 +152,15 @@ export class DiscordClass {
 		const sendMsg = await this.parseMatrixMessage(room.puppetId, event.content);
 		const lockKey = `${room.puppetId};${room.roomId}`;
 		this.sendMessageLock.set(lockKey);
-		const reply = await chan.send(sendMsg);
-		await this.insertNewEventId(room.puppetId, data.eventId!, reply);
-		this.sendMessageLock.release(lockKey);
+		try {
+			const reply = await chan.send(sendMsg);
+			await this.insertNewEventId(room.puppetId, data.eventId!, reply);
+			this.sendMessageLock.release(lockKey);
+		} catch (err) {
+			log.warn("Couldn't send message", err);
+			this.sendMessageLock.release(lockKey);
+			await this.sendMessageFail(room);
+		}
 	}
 
 	public async handleMatrixFile(room: IRemoteChan, data: IFileEvent, event: any) {
@@ -178,24 +184,35 @@ export class DiscordClass {
 				// send as attachment
 				const filename = this.getFilenameForMedia(data.filename, mimetype);
 				this.sendMessageLock.set(lockKey);
-				const reply = await chan!.send(new Discord.Attachment(attachment, filename));
-				await this.insertNewEventId(room.puppetId, data.eventId!, reply);
-				this.sendMessageLock.release(lockKey);
-				return;
+				try {
+					const reply = await chan.send(new Discord.Attachment(attachment, filename));
+					await this.insertNewEventId(room.puppetId, data.eventId!, reply);
+					this.sendMessageLock.release(lockKey);
+					return;
+				} catch (err) {
+					this.sendMessageLock.release(lockKey);
+					log.warn("Couldn't send media message, retrying as embed/url", err)
+				}
 			}
 		}
 		this.sendMessageLock.set(lockKey);
-		if (mimetype && mimetype.split("/")[0] === "image" && p.client.user.bot) {
-			const embed = new Discord.RichEmbed()
-				.setTitle(data.filename)
-				.setImage(data.url);
-			const reply = await chan.send(embed);
-			await this.insertNewEventId(room.puppetId, data.eventId!, reply);
-		} else {
-			const reply = await chan.send(`Uploaded File: [${data.filename}](${data.url})`);
-			await this.insertNewEventId(room.puppetId, data.eventId!, reply);
+		try {
+			if (mimetype && mimetype.split("/")[0] === "image" && p.client.user.bot) {
+				const embed = new Discord.RichEmbed()
+					.setTitle(data.filename)
+					.setImage(data.url);
+				const reply = await chan.send(embed);
+				await this.insertNewEventId(room.puppetId, data.eventId!, reply);
+			} else {
+				const reply = await chan.send(`Uploaded File: [${data.filename}](${data.url})`);
+				await this.insertNewEventId(room.puppetId, data.eventId!, reply);
+			}
+			this.sendMessageLock.release(lockKey);
+		} catch (err) {
+			log.warn("Couldn't send media message", err);
+			this.sendMessageLock.release(lockKey);
+			await this.sendMessageFail(room);
 		}
-		this.sendMessageLock.release(lockKey);
 	}
 
 	public async handleMatrixRedact(room: IRemoteChan, eventId: string, event: any) {
@@ -875,6 +892,38 @@ export class DiscordClass {
 			return await this.store.isChannelBridged(puppetId, chan.id);
 		}
 		return false;
+	}
+
+	private async sendMessageFail(room: IRemoteChan) {
+		const p = this.puppets[room.puppetId];
+		if (!p) {
+			return;
+		}
+		const chan = await this.getDiscordChan(p.client, room.roomId);
+		if (!chan) {
+			return;
+		}
+		let msg = "";
+		if (chan.type === "dm") {
+			msg = `Failed to send message to DM with user ${(chan as Discord.DMChannel).recipient.username}`;
+		} else if (chan.type === "group") {
+			const groupChan = chan as Discord.GroupDMChannel;
+			let name = groupChan.name;
+			if (!name) {
+				const names: string[] = [];
+				for (const [, user] of groupChan.recipients) {
+					names.push(user.username);
+				}
+				name = names.join(", ");
+			}
+			msg = `Failed to send message into Group DM ${name}`;
+		} else if (chan.type === "text") {
+			const textChan = chan as Discord.TextChannel;
+			msg = `Failed to send message into channel ${textChan.name} of guild ${textChan.guild.name}`;
+		} else {
+			msg = `Failed to send message into channel with id \`${chan.id}\``;
+		}
+		await this.puppet.sendStatusMessage(room, msg);
 	}
 
 	private async parseMatrixMessage(puppetId: number, eventContent: any): Promise<string> {
