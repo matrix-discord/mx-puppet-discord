@@ -58,9 +58,9 @@ export class DiscordClass {
 		await this.store.init();
 	}
 
-	public getRemoteUser(puppetId: number, user: Discord.User): IRemoteUser {
+	public getRemoteUser(puppetId: number, user: Discord.User, isWebhook: boolean = false): IRemoteUser {
 		return {
-			userId: user.id,
+			userId: isWebhook ? `webhook-${user.id}-${user.username}` : user.id,
 			puppetId,
 			avatarUrl: user.avatarURL,
 			name: user.username,
@@ -106,10 +106,12 @@ export class DiscordClass {
 		let channel: Discord.Channel;
 		let eventId: string | undefined;
 		let externalUrl: string | undefined;
+		let isWebhook = false;
 		if (!user) {
 			channel = (msg as Discord.Message).channel;
 			user = (msg as Discord.Message).author;
 			eventId = (msg as Discord.Message).id;
+			isWebhook = (msg as Discord.Message).webhookID ? true : false;
 			if (channel.type === "text") {
 				const textChannel = channel as Discord.TextChannel;
 				externalUrl = `https://discordapp.com/channels/${textChannel.guild.id}/${textChannel.id}/${eventId}`;
@@ -121,7 +123,7 @@ export class DiscordClass {
 		}
 		return {
 			chan: this.getRemoteChan(puppetId, channel),
-			user: this.getRemoteUser(puppetId, user),
+			user: this.getRemoteUser(puppetId, user, isWebhook),
 			eventId,
 			externalUrl,
 		} as IReceiveParams;
@@ -547,6 +549,9 @@ export class DiscordClass {
 	public async createUser(user: IRemoteUser): Promise<IRemoteUser | null> {
 		const p = this.puppets[user.puppetId];
 		if (!p) {
+			return null;
+		}
+		if (user.userId.startsWith("webhook-")) {
 			return null;
 		}
 		const u = await this.getUserById(p.client, user.userId);
