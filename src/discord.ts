@@ -745,8 +745,10 @@ export class DiscordClass {
 		}
 		await this.store.setBridgedGuild(puppetId, guild.id);
 		let msg = `Guild ${guild.name} (\`${guild.id}\`) is now being bridged!
+
 Either type \`joinentireguild ${puppetId} ${guild.id}\` to get invited to all the channels of that guild `;
 		msg += `or type \`listchannels\` and join that way.
+
 Additionally you will be invited to guild channels as messages are sent in them.`;
 		await sendMessage(msg);
 	}
