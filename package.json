@@ -14,11 +14,12 @@
     "better-discord.js": "git+https://github.com/Sorunome/better-discord.js.git#a4904b49c74aaa77b534c86bd1e55eab43dce795",
     "command-line-args": "^5.1.1",
     "command-line-usage": "^5.0.5",
+    "escape-html": "^1.0.3",
     "events": "^3.0.0",
     "js-yaml": "^3.13.1",
     "matrix-discord-parser": "0.0.3-1",
     "mime": "^2.4.4",
-    "mx-puppet-bridge": "0.0.20-1",
+    "mx-puppet-bridge": "0.0.21",
     "path": "^0.12.7",
     "tslint": "^5.17.0",
     "typescript": "^3.7.4"

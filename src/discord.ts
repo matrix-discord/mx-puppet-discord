@@ -4,6 +4,7 @@ import {
 	IReceiveParams,
 	IRemoteChan,
 	IRemoteUser,
+	IRemoteGroup,
 	IMessageEvent,
 	IFileEvent,
 	Util,
@@ -22,6 +23,7 @@ import {
 import * as path from "path";
 import * as mime from "mime";
 import { DiscordStore } from "./store";
+import * as escapeHtml from "escape-html";
 
 const log = new Log("DiscordPuppet:Discord");
 
@@ -86,6 +88,7 @@ export class DiscordClass {
 			const textChannel = channel as Discord.TextChannel;
 			ret.name = `#${textChannel.name} - ${textChannel.guild.name}`;
 			ret.avatarUrl = textChannel.guild.iconURL;
+			ret.groupId = textChannel.guild.id;
 		}
 		return ret;
 	}
@@ -100,6 +103,37 @@ export class DiscordClass {
 			return null;
 		}
 		return this.getRemoteChan(puppetId, chan);
+	}
+
+	public async getRemoteGroup(puppetId: number, guild: Discord.Guild) {
+		const roomIds: string[] = [];
+		let description = `<h1>${escapeHtml(guild.name)}</h1>`;
+		description += `<h2>Channels:</h2><ul>`;
+		await this.iterateGuildStructure(puppetId, guild,
+			async (cat: Discord.CategoryChannel) => {
+				const name = escapeHtml(cat.name);
+				description += `</ul><h3>${name}</h3><ul>`;
+			},
+			async (chan: Discord.TextChannel) => {
+				roomIds.push(chan.id);
+				const mxid = await this.puppet.getMxidForChan({
+					puppetId,
+					roomId: chan.id,
+				});
+				const url = "https://matrix.to/#/" + mxid;
+				const name = escapeHtml(chan.name);
+				description += `<li>${name}: <a href="${url}">${name}</a></li>`;
+			},
+		);
+		description += "</ul>";
+		return {
+			puppetId,
+			groupId: guild.id,
+			name: guild.name,
+			avatarUrl: guild.iconURL,
+			roomIds,
+			longDescription: description,
+		} as IRemoteGroup;
 	}
 
 	public getSendParams(puppetId: number, msg: Discord.Message | Discord.Channel, user?: Discord.User): IReceiveParams {
@@ -524,6 +558,14 @@ export class DiscordClass {
 				log.error("Error handling discord messageReactionAdd event", err);
 			}
 		});
+		client.on("guildUpdate", async (_, guild: Discord.Guild) => {
+			try {
+				const remoteGroup = await this.getRemoteGroup(puppetId, guild);
+				await this.puppet.updateGroup(remoteGroup);
+			} catch (err) {
+				log.error("Error handling discord guildUpdate event", err);
+			}
+		});
 		this.puppets[puppetId] = {
 			client,
 			data,
@@ -559,6 +601,19 @@ export class DiscordClass {
 			return null;
 		}
 		return this.getRemoteUser(user.puppetId, u);
+	}
+
+	public async createGroup(group: IRemoteGroup): Promise<IRemoteGroup | null> {
+		const p = this.puppets[group.puppetId];
+		if (!p) {
+			return null;
+		}
+		
+		const guild = p.client.guilds.get(group.groupId);
+		if (!guild) {
+			return null;
+		}
+		return await this.getRemoteGroup(group.puppetId, guild);
 	}
 
 	public async getDmRoom(user: IRemoteUser): Promise<string | null> {
@@ -616,61 +671,31 @@ export class DiscordClass {
 		if (!p) {
 			return [];
 		}
-		const bridgedGuilds = await this.store.getBridgedGuilds(puppetId);
-		const bridgedChannels = await this.store.getBridgedChannels(puppetId);
 		for (const [, guild] of Array.from(p.client.guilds)) {
-			let doGuild = false;
-			// first we iterate over the non-sorted channels
-			for (const [, chan] of Array.from(guild.channels)) {
-				if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id)) {
-					continue;
-				}
-				const permissions = chan.memberPermissions(p.client.user);
-				if (!chan.parentID && chan.type === "text" &&
-					(!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
-					if (!doGuild) {
-						doGuild = true;
+			let didGuild = false;
+			let didCat = false;
+			await this.iterateGuildStructure(puppetId, guild,
+				async (cat: Discord.CategoryChannel) => {
+					didCat = true;
+					retGuilds.push({
+						category: true,
+						name: `${guild.name} - ${cat.name}`,
+					});
+				},
+				async (chan: Discord.TextChannel) => {
+					if (!didGuild && !didCat) {
+						didGuild = true;
 						retGuilds.push({
 							category: true,
 							name: guild.name,
 						});
 					}
 					retGuilds.push({
-						name: (chan as Discord.TextChannel).name,
+						name: chan.name,
 						id: chan.id,
 					});
-				}
-			}
-			// next we iterate over the categories and all their children
-			for (const [, catt] of Array.from(guild.channels)) {
-				if (catt.type !== "category") {
-					continue;
-				}
-				const cat = catt as Discord.CategoryChannel;
-				const catPermissions = cat.memberPermissions(p.client.user);
-				if (!catPermissions || catPermissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number)) {
-					let doCat = false;
-					for (const [, chan] of Array.from(cat.children)) {
-						if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id)) {
-							continue;
-						}
-						const permissions = chan.memberPermissions(p.client.user);
-						if (chan.type === "text" && (!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
-							if (!doCat) {
-								doCat = true;
-								retGuilds.push({
-									category: true,
-									name: `${guild.name} - ${cat.name}`,
-								});
-							}
-							retGuilds.push({
-								name: (chan as Discord.TextChannel).name,
-								id: chan.id,
-							});
-						}
-					}
-				}
-			}
+				},
+			);
 		}
 		for (const [, chan] of Array.from(p.client.channels)) {
 			if (chan.type === "group") {
@@ -1097,5 +1122,51 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			return path.basename(filename) + ext;
 		}
 		return "matrix-media" + ext;
+	}
+
+	private async iterateGuildStructure(
+		puppetId: number,
+		guild: Discord.Guild,
+		catCallback: (cat: Discord.CategoryChannel) => Promise<void>,
+		chanCallback: (chan: Discord.TextChannel) => Promise<void>,
+	) {
+		const bridgedGuilds = await this.store.getBridgedGuilds(puppetId);
+		const bridgedChannels = await this.store.getBridgedChannels(puppetId);
+		const client = guild.client;
+		// first we iterate over the non-sorted channels
+		for (const [, chan] of Array.from(guild.channels)) {
+			if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id)) {
+				continue;
+			}
+			const permissions = chan.memberPermissions(client.user);
+			if (!chan.parentID && chan.type === "text" &&
+				(!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
+				await chanCallback(chan as Discord.TextChannel);
+			}
+		}
+		// next we iterate over the categories and all their children
+		for (const [, catt] of Array.from(guild.channels)) {
+			if (catt.type !== "category") {
+				continue;
+			}
+			const cat = catt as Discord.CategoryChannel;
+			const catPermissions = cat.memberPermissions(client.user);
+			if (!catPermissions || catPermissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number)) {
+				let doCat = false;
+				for (const [, chan] of Array.from(cat.children)) {
+					if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id)) {
+						continue;
+					}
+					const permissions = chan.memberPermissions(client.user);
+					if (chan.type === "text" && (!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
+						if (!doCat) {
+							doCat = true;
+							await catCallback(cat);
+						}
+						await chanCallback(chan as Discord.TextChannel);
+					}
+				}
+			}
+		}
 	}
 }

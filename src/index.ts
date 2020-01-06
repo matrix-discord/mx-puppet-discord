@@ -78,6 +78,7 @@ async function run() {
 	puppet.on("reaction", discord.handleMatrixReaction.bind(discord));
 	puppet.setCreateChanHook(discord.createChan.bind(discord));
 	puppet.setCreateUserHook(discord.createUser.bind(discord));
+	puppet.setCreateGroupHook(discord.createGroup.bind(discord));
 	puppet.setGetDmRoomIdHook(discord.getDmRoom.bind(discord));
 	puppet.setListUsersHook(discord.listUsers.bind(discord));
 	puppet.setListChansHook(discord.listChans.bind(discord));
