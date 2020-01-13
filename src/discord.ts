@@ -558,10 +558,22 @@ export class DiscordClass {
 				log.error("Error handling discord messageReactionAdd event", err);
 			}
 		});
+		client.on("channelUpdate", async (_, channel: Discord.Channel) => {
+			const remoteChan = this.getRemoteChan(puppetId, channel);
+			await this.puppet.updateChannel(remoteChan);
+		});
+		client.on("userUpdate", async (_, user: Discord.User) => {
+			const remoteUser = this.getRemoteUser(puppetId, user);
+			await this.puppet.updateUser(remoteUser);
+		});
 		client.on("guildUpdate", async (_, guild: Discord.Guild) => {
 			try {
 				const remoteGroup = await this.getRemoteGroup(puppetId, guild);
 				await this.puppet.updateGroup(remoteGroup);
+				for (const [_, chan] of guild.channels) {
+					const remoteChan = this.getRemoteChan(puppetId, chan);
+					this.puppet.updateChannel(remoteChan);
+				}
 			} catch (err) {
 				log.error("Error handling discord guildUpdate event", err);
 			}
