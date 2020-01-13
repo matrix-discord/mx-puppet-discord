@@ -17,7 +17,7 @@ export class DiscordStore {
 	public async init(): Promise<void> {
 		await this.store.init(CURRENT_SCHEMA, "discord_schema", (version: number) => {
 			return require(`./db/schema/v${version}.js`).Schema;
-		});
+		}, false);
 	}
 
 	public async getEmoji(id: string): Promise <IDbEmoji | null> {
