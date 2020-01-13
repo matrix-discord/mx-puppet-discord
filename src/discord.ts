@@ -466,6 +466,33 @@ export class DiscordClass {
 		await this.puppet.sendRedact(params, msg.id);
 	}
 
+	public async handlePuppetName(puppetId: number, name: string) {
+		const p = this.puppets[puppetId];
+		if (!p || !p.data.syncProfile || !p.client.user.bot) {
+			// bots can't change their name
+			return;
+		}
+		try {
+			await p.client.user.setUsername(name);
+		} catch (err) {
+			log.warn(`Couldn't set name for ${puppetId}`, err);
+		}
+	}
+
+	public async handlePuppetAvatar(puppetId: number, url: string, mxc: string) {
+		const p = this.puppets[puppetId];
+		if (!p || !p.data.syncProfile) {
+			return;
+		}
+		try {
+			url = url.replace("download", "thumbnail") + "?width=800&height=800";
+			const buffer = await Util.DownloadFile(url);
+			await p.client.user.setAvatar(buffer);
+		} catch (err) {
+			log.warn(`Couldn't set avatar for ${puppetId}`, err);
+		}
+	}
+
 	public async newPuppet(puppetId: number, data: any) {
 		log.info(`Adding new Puppet: puppetId=${puppetId}`);
 		if (this.puppets[puppetId]) {
@@ -479,6 +506,7 @@ export class DiscordClass {
 			await this.puppet.setUserId(puppetId, client.user.id);
 			await this.puppet.setPuppetData(puppetId, d);
 			await this.puppet.sendStatusMessage(puppetId, "connected");
+			await this.updateUserInfo(puppetId);
 		});
 		client.on("message", async (msg: Discord.Message) => {
 			try {
@@ -729,6 +757,39 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			}
 		}
 		return retGroups.concat(retGuilds);
+	}
+
+	public async updateUserInfo(puppetId: number) {
+		const p = this.puppets[puppetId];
+		if (!p || !p.data.syncProfile) {
+			return;
+		}
+		const userInfo = await this.puppet.getPuppetMxidInfo(puppetId);
+		if (userInfo) {
+			if (userInfo.name) {
+				await this.handlePuppetName(puppetId, userInfo.name);
+			}
+			if (userInfo.avatarUrl) {
+				await this.handlePuppetAvatar(puppetId, userInfo.avatarUrl, userInfo.avatarMxc as string);
+			}
+		}
+	}
+
+	public async commandSyncProfile(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		const syncProfile = param === "1" || param.toLowerCase() === "true";
+		p.data.syncProfile = syncProfile;
+		await this.puppet.setPuppetData(puppetId, p.data);
+		if (syncProfile) {
+			await sendMessage("Syncing discord profile with matrix profile now");
+			await this.updateUserInfo(puppetId);
+		} else {
+			await sendMessage("Stopped syncing discord profile with matrix profile");
+		}
 	}
 
 	public async commandJoinEntireGuild(puppetId: number, param: string, sendMessage: SendMessageFn) {

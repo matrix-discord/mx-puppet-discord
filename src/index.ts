@@ -76,6 +76,8 @@ async function run() {
 	puppet.on("edit", discord.handleMatrixEdit.bind(discord));
 	puppet.on("reply", discord.handleMatrixReply.bind(discord));
 	puppet.on("reaction", discord.handleMatrixReaction.bind(discord));
+	puppet.on("puppetName", discord.handlePuppetName.bind(discord));
+	puppet.on("puppetAvatar", discord.handlePuppetAvatar.bind(discord));
 	puppet.setCreateChanHook(discord.createChan.bind(discord));
 	puppet.setCreateUserHook(discord.createUser.bind(discord));
 	puppet.setCreateGroupHook(discord.createGroup.bind(discord));
@@ -108,6 +110,10 @@ async function run() {
 	});
 	puppet.setBotHeaderMsgHook((): string => {
 		return "Discord Puppet Bridge";
+	});
+	puppet.registerCommand("syncprofile", {
+		fn: discord.commandSyncProfile.bind(discord),
+		help: "Enable/disable the syncing of the profile",
 	});
 	puppet.registerCommand("joinentireguild", {
 		fn: discord.commandJoinEntireGuild.bind(discord),
