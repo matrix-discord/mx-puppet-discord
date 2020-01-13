@@ -915,11 +915,16 @@ Additionally you will be invited to guild channels as messages are sent in them.
 				`\`enablefriendsmanagement ${puppetId}\` to enable it`);
 			return;
 		}
-		const user = await p.client.user.addFriend(param);
-		if (user) {
-			await sendMessage(`Added/sent friend request to ${user.username}!`);
-		} else {
+		try {
+			const user = await p.client.user.addFriend(param);
+			if (user) {
+				await sendMessage(`Added/sent friend request to ${typeof user === "string" ? user : user.username}!`);
+			} else {
+				await sendMessage("User not found");
+			}
+		} catch (err) {
 			await sendMessage("User not found");
+			log.warn(`Couldn't find user ${param}:`, err);
 		}
 	}
 
@@ -934,11 +939,16 @@ Additionally you will be invited to guild channels as messages are sent in them.
 				`\`enablefriendsmanagement ${puppetId}\` to enable it`);
 			return;
 		}
-		const user = await p.client.user.removeFriend(param);
-		if (user) {
-			await sendMessage(`Removed ${user.username} as friend!`);
-		} else {
+		try {
+			const user = await p.client.user.removeFriend(param);
+			if (user) {
+				await sendMessage(`Removed ${user.username} as friend!`);
+			} else {
+				await sendMessage("User not found");
+			}
+		} catch (err) {
 			await sendMessage("User not found");
+			log.warn(`Couldn't find user ${param}:`, err);
 		}
 	}
 
