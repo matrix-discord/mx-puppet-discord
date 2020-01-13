@@ -117,6 +117,10 @@ async function run() {
 		fn: discord.commandListGuilds.bind(discord),
 		help: "List all guilds that are currently bridged",
 	});
+	puppet.registerCommand("acceptinvite", {
+		fn: discord.commandAcceptInvite.bind(discord),
+		help: "Accept a discord.gg invite",
+	});
 	puppet.registerCommand("bridgeguild", {
 		fn: discord.commandBridgeGuild.bind(discord),
 		help: "Bridge a guild",

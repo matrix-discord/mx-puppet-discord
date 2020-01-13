@@ -762,6 +762,35 @@ export class DiscordClass {
 		await sendMessage(sendStr);
 	}
 
+	public async commandAcceptInvite(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		const matches = param.match(/^(?:https?:\/\/)?(?:discord\.gg\/|discordapp\.com\/invite\/)?([^?\/\s]+)/i);
+		if (!matches) {
+			await sendMessage("No invite code found!");
+			return;
+		}
+		const inviteCode = matches[1];
+		try {
+			const guild = await p.client.user.acceptInvite(inviteCode);
+			if (!guild) {
+				await sendMessage("Something went wrong");
+			} else {
+				await sendMessage(`Accepted invite to guild ${guild.name}!`);
+			}
+		} catch (err) {
+			if (err.message) {
+				await sendMessage(`Invalid invite code ${inviteCode}: ${err.message}`);
+			} else {
+				await sendMessage(`Invalid invite code ${inviteCode}`);
+			}
+			log.warn(`Invalid invite code ${inviteCode}:`, err);
+		}
+	}
+
 	public async commandBridgeGuild(puppetId: number, param: string, sendMessage: SendMessageFn) {
 		const p = this.puppets[puppetId];
 		if (!p) {
