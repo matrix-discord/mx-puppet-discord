@@ -566,6 +566,14 @@ export class DiscordClass {
 				log.error("Error handling discord guildUpdate event", err);
 			}
 		});
+		client.on("relationshipAdd", async (relationship: Discord.Relationship) => {
+			if (relationship.type === "incomingFriend") {
+				const msg = `New incoming friends request from ${relationship.user.username}!
+
+Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
+				await this.puppet.sendStatusMessage(puppetId, msg);
+			}
+		});
 		this.puppets[puppetId] = {
 			client,
 			data,
