@@ -783,9 +783,9 @@ export class DiscordClass {
 			}
 		} catch (err) {
 			if (err.message) {
-				await sendMessage(`Invalid invite code ${inviteCode}: ${err.message}`);
+				await sendMessage(`Invalid invite code \`${inviteCode}\`: ${err.message}`);
 			} else {
-				await sendMessage(`Invalid invite code ${inviteCode}`);
+				await sendMessage(`Invalid invite code \`${inviteCode}\``);
 			}
 			log.warn(`Invalid invite code ${inviteCode}:`, err);
 		}
