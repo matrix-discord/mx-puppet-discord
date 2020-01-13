@@ -11,7 +11,7 @@
   },
   "author": "Sorunome",
   "dependencies": {
-    "better-discord.js": "git+https://github.com/Sorunome/better-discord.js.git#97aa076bc6408a8cf504ea46dc3c1b60af41b750",
+    "better-discord.js": "git+https://github.com/Sorunome/better-discord.js.git#6dc47cdff09a81146b1a7944380b2466bffd98a4",
     "command-line-args": "^5.1.1",
     "command-line-usage": "^5.0.5",
     "escape-html": "^1.0.3",

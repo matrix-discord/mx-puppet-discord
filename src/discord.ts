@@ -554,9 +554,14 @@ export class DiscordClass {
 				log.error("Error handling discord typingStop event", err);
 			}
 		});
-		client.on("presenceUpdate", async (_, member: Discord.GuildMember) => {
+		client.on("presenceUpdate", async (_, member: Discord.GuildMember | Discord.User) => {
 			try {
-				const user = member.user;
+				let user: Discord.User;
+				if ((member as Discord.GuildMember).user) {
+					user = (member as Discord.GuildMember).user;
+				} else {
+					user = member as Discord.User;
+				}
 				const matrixPresence = {
 					online: "online",
 					idle: "unavailable",
