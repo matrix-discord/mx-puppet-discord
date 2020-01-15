@@ -60,13 +60,36 @@ export class DiscordClass {
 		await this.store.init();
 	}
 
-	public getRemoteUser(puppetId: number, user: Discord.User, isWebhook: boolean = false): IRemoteUser {
-		return {
+	public getRemoteUser(puppetId: number, userOrMember: Discord.User | Discord.GuildMember, isWebhook: boolean = false, chan?: Discord.TextChannel): IRemoteUser {
+		let user = userOrMember as Discord.User;
+		let member: Discord.GuildMember | null = null;
+		if ((userOrMember as Discord.GuildMember).guild) {
+			member = userOrMember as Discord.GuildMember;
+			user = member.user;
+		}
+		const response = {
 			userId: isWebhook ? `webhook-${user.id}-${user.username}` : user.id,
 			puppetId,
 			avatarUrl: user.avatarURL,
 			name: user.username,
-		};
+		} as IRemoteUser;
+		if (member) {
+			response.roomOverrides = {};
+			if (chan) {
+				response.roomOverrides[chan.id] = {
+					name: member.displayName,
+				};
+			} else {
+				for (const [, chan] of member.guild.channels) {
+					if (chan.type === "text") {
+						response.roomOverrides[chan.id] = {
+							name: member.displayName,
+						};
+					}
+				}
+			}
+		}
+		return response;
 	}
 
 	public getRemoteChan(puppetId: number, channel: Discord.Channel): IRemoteChan {
@@ -136,28 +159,30 @@ export class DiscordClass {
 		} as IRemoteGroup;
 	}
 
-	public getSendParams(puppetId: number, msg: Discord.Message | Discord.Channel, user?: Discord.User): IReceiveParams {
+	public getSendParams(puppetId: number, msgOrChannel: Discord.Message | Discord.Channel, user?: Discord.User | Discord.GuildMember): IReceiveParams {
 		let channel: Discord.Channel;
 		let eventId: string | undefined;
 		let externalUrl: string | undefined;
 		let isWebhook = false;
+		let textChannel: Discord.TextChannel | undefined;
 		if (!user) {
-			channel = (msg as Discord.Message).channel;
-			user = (msg as Discord.Message).author;
-			eventId = (msg as Discord.Message).id;
-			isWebhook = (msg as Discord.Message).webhookID ? true : false;
+			const msg = msgOrChannel as Discord.Message;
+			channel = msg.channel;
+			user = msg.member || msg.author;
+			eventId = msg.id;
+			isWebhook = msg.webhookID ? true : false;
 			if (channel.type === "text") {
-				const textChannel = channel as Discord.TextChannel;
+				textChannel = channel as Discord.TextChannel;
 				externalUrl = `https://discordapp.com/channels/${textChannel.guild.id}/${textChannel.id}/${eventId}`;
 			} else if (["group", "dm"].includes(channel.type)) {
 				externalUrl = `https://discordapp.com/channels/@me/${channel.id}/${eventId}`;
 			}
 		} else {
-			channel = msg as Discord.Channel;
+			channel = msgOrChannel as Discord.Channel;
 		}
 		return {
 			chan: this.getRemoteChan(puppetId, channel),
-			user: this.getRemoteUser(puppetId, user, isWebhook),
+			user: this.getRemoteUser(puppetId, user, isWebhook, textChannel),
 			eventId,
 			externalUrl,
 		} as IReceiveParams;
@@ -608,6 +633,12 @@ export class DiscordClass {
 			const remoteChan = this.getRemoteChan(puppetId, channel);
 			await this.puppet.updateChannel(remoteChan);
 		});
+		client.on("guildMemberUpdate", async (oldMember: Discord.GuildMember, newMember: Discord.GuildMember) => {
+			if (oldMember.displayName !== newMember.displayName) {
+				const remoteUser = this.getRemoteUser(puppetId, newMember);
+				await this.puppet.updateUser(remoteUser);
+			}
+		});
 		client.on("userUpdate", async (_, user: Discord.User) => {
 			const remoteUser = this.getRemoteUser(puppetId, user);
 			await this.puppet.updateUser(remoteUser);
@@ -666,7 +697,21 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		if (!u) {
 			return null;
 		}
-		return this.getRemoteUser(user.puppetId, u);
+		const remoteUser = this.getRemoteUser(user.puppetId, u);
+		remoteUser.roomOverrides = {};
+		for (const [, guild] of p.client.guilds) {
+			const member = guild.members.get(u.id);
+			if (member) {
+				for (const [, chan] of guild.channels) {
+					if (chan.type === "text") {
+						remoteUser.roomOverrides[chan.id] = {
+							name: member.displayName,
+						};
+					}
+				}
+			}
+		}
+		return remoteUser;
 	}
 
 	public async createGroup(group: IRemoteGroup): Promise<IRemoteGroup | null> {
