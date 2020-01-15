@@ -356,7 +356,14 @@ export class DiscordClass {
 		if (!msg) {
 			return;
 		}
-		await msg.react(reaction);
+		if (reaction.startsWith("mxc://")) {
+			const emoji = await this.getDiscordEmoji(p.client, reaction);
+			if (emoji) {
+				await msg.react(emoji);
+			}
+		} else {
+			await msg.react(reaction);
+		}
 	}
 
 	public async handleDiscordMessage(puppetId: number, msg: Discord.Message) {
@@ -586,7 +593,13 @@ export class DiscordClass {
 					return;
 				}
 				const params = this.getSendParams(puppetId, chan, user);
-				await this.puppet.sendReaction(params, reaction.message.id, reaction.emoji.name);
+				if ((reaction.emoji as Discord.Emoji).url) {
+					const emoji = reaction.emoji as Discord.Emoji;
+					const mxc = await this.getEmojiMxc(emoji.name, emoji.animated, emoji.id);
+					await this.puppet.sendReaction(params, reaction.message.id, mxc || reaction.emoji.name);
+				} else {
+					await this.puppet.sendReaction(params, reaction.message.id, reaction.emoji.name);
+				}
 			} catch (err) {
 				log.error("Error handling discord messageReactionAdd event", err);
 			}
@@ -603,9 +616,9 @@ export class DiscordClass {
 			try {
 				const remoteGroup = await this.getRemoteGroup(puppetId, guild);
 				await this.puppet.updateGroup(remoteGroup);
-				for (const [_, chan] of guild.channels) {
+				for (const [, chan] of guild.channels) {
 					const remoteChan = this.getRemoteChan(puppetId, chan);
-					this.puppet.updateChannel(remoteChan);
+					await this.puppet.updateChannel(remoteChan);
 				}
 			} catch (err) {
 				log.error("Error handling discord guildUpdate event", err);
@@ -661,7 +674,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		if (!p) {
 			return null;
 		}
-		
+
 		const guild = p.client.guilds.get(group.groupId);
 		if (!guild) {
 			return null;
@@ -1211,26 +1224,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 				};
 			},
 			getChannel: async (id: string) => null, // we don't handle channels
-			getEmoji: async (name: string, animated: boolean, id: string) => {
-				let emoji = await this.store.getEmoji(id);
-				if (emoji) {
-					return emoji.mxcUrl;
-				}
-				const url = `https://cdn.discordapp.com/emojis/${id}${animated ? ".gif" : ".png"}`;
-				const buffer = await Util.DownloadFile(url);
-				const mxcUrl = await this.puppet.botIntent.underlyingClient.uploadContent(
-					buffer,
-					Util.GetMimeType(buffer),
-				);
-				emoji = {
-					emojiId: id,
-					name,
-					animated,
-					mxcUrl,
-				};
-				await this.store.setEmoji(emoji);
-				return emoji.mxcUrl;
-			},
+			getEmoji: this.getEmojiMxc.bind(this),
 		} as IDiscordMessageParserCallbacks;
 	}
 
@@ -1247,6 +1241,36 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			return path.basename(filename) + ext;
 		}
 		return "matrix-media" + ext;
+	}
+
+	private async getDiscordEmoji(client: Discord.Client, mxc: string): Promise<Discord.Emoji | null> {
+		const dbEmoji = await this.store.getEmojiByMxc(mxc);
+		if (!dbEmoji) {
+			return null;
+		}
+		const emoji = client.emojis.get(dbEmoji.emojiId);
+		return emoji || null;
+	}
+
+	private async getEmojiMxc(name: string, animated: boolean, id: string): Promise<string | null> {
+		let emoji = await this.store.getEmoji(id);
+		if (emoji) {
+			return emoji.mxcUrl;
+		}
+		const url = `https://cdn.discordapp.com/emojis/${id}${animated ? ".gif" : ".png"}`;
+		const buffer = await Util.DownloadFile(url);
+		const mxcUrl = await this.puppet.botIntent.underlyingClient.uploadContent(
+			buffer,
+			Util.GetMimeType(buffer),
+		);
+		emoji = {
+			emojiId: id,
+			name,
+			animated,
+			mxcUrl,
+		};
+		await this.store.setEmoji(emoji);
+		return emoji.mxcUrl;
 	}
 
 	private async iterateGuildStructure(

@@ -35,6 +35,19 @@ export class DiscordStore {
 		} as IDbEmoji;
 	}
 
+	public async getEmojiByMxc(mxc: string): Promise<IDbEmoji | null> {
+		const row = await this.store.db.Get("SELECT * FROM discord_emoji WHERE mxc_url = $mxc", { mxc });
+		if (!row) {
+			return null;
+		}
+		return {
+			emojiId: row.emoji_id as string,
+			name: row.name as string,
+			animated: Boolean(row.animated), // they are stored as numbers
+			mxcUrl: row.mxc_url as string,
+		} as IDbEmoji;
+	}
+
 	public async setEmoji(emoji: IDbEmoji): Promise<void> {
 		const exists = await this.store.db.Get("SELECT 1 from discord_emoji WHERE emoji_id = $id", {
 			id: emoji.emojiId,
