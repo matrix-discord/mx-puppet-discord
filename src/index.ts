@@ -1,6 +1,5 @@
 import {
 	PuppetBridge,
-	IPuppetBridgeFeatures,
 	IPuppetBridgeRegOpts,
 	Log,
 	IRetData,
