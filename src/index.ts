@@ -4,6 +4,7 @@ import {
 	IPuppetBridgeRegOpts,
 	Log,
 	IRetData,
+	IProtocolInformation,
 } from "mx-puppet-bridge";
 import * as commandLineArgs from "command-line-args";
 import * as commandLineUsage from "command-line-usage";
@@ -39,14 +40,25 @@ if (options.help) {
 	process.exit(0);
 }
 
-const features = {
-	file: true,
-	presence: true,
-	edit: true,
-	reply: true,
-} as IPuppetBridgeFeatures;
+const protocol = {
+	features: {
+		file: true,
+		presence: true,
+		edit: true,
+		reply: true,
+	},
+	id: "discord",
+	displayname: "Discord",
+	externalUrl: "https://discordapp.com/",
+	namePatterns: {
+		user: ":name",
+		userOverride: ":displayname",
+		room: "[:guild?#:name - :guild,:name]",
+		group: ":name",
+	},
+} as IProtocolInformation;
 
-const puppet = new PuppetBridge(options["registration-file"], options.config, features);
+const puppet = new PuppetBridge(options["registration-file"], options.config, protocol);
 
 if (options.register) {
 	// okay, all we have to do is generate a registration file

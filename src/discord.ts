@@ -11,6 +11,7 @@ import {
 	IRetList,
 	Lock,
 	SendMessageFn,
+	IStringFormatterVars,
 } from "mx-puppet-bridge";
 import * as Discord from "better-discord.js";
 import {
@@ -67,23 +68,41 @@ export class DiscordClass {
 			member = userOrMember as Discord.GuildMember;
 			user = member.user;
 		}
+		const nameVars = {
+			name: user.username,
+			discriminator: user.discriminator,
+		} as IStringFormatterVars;
 		const response = {
 			userId: isWebhook ? `webhook-${user.id}-${user.username}` : user.id,
 			puppetId,
 			avatarUrl: user.avatarURL,
-			name: user.username,
+			nameVars,
 		} as IRemoteUser;
 		if (member) {
 			response.roomOverrides = {};
 			if (chan) {
+				const overrideNameVars = Object.assign({}, nameVars, {
+					displayname: member.displayName,
+				});
+				if (chan.type === "text") {
+					const textChan = chan as Discord.TextChannel;
+					overrideNameVars.channel = textChan.name;
+					overrideNameVars.guild = textChan.guild.name;
+				}
 				response.roomOverrides[chan.id] = {
-					name: member.displayName,
+					nameVars: overrideNameVars,
 				};
 			} else {
 				for (const [, chan] of member.guild.channels) {
 					if (chan.type === "text") {
+						const textChan = chan as Discord.TextChannel;
+						const overrideNameVars = Object.assign({}, nameVars, {
+							displayname: member.displayName,
+							channel: textChan.name,
+							guild: textChan.guild.name,
+						});
 						response.roomOverrides[chan.id] = {
-							name: member.displayName,
+							nameVars: overrideNameVars,
 						};
 					}
 				}
@@ -104,12 +123,17 @@ export class DiscordClass {
 		} as IRemoteChan;
 		if (channel.type === "group") {
 			const groupChannel = channel as Discord.GroupDMChannel;
-			ret.name = groupChannel.name;
+			ret.nameVars = {
+				name: groupChannel.name,
+			};
 			ret.avatarUrl = groupChannel.iconURL;
 		}
 		if (channel.type === "text") {
 			const textChannel = channel as Discord.TextChannel;
-			ret.name = `#${textChannel.name} - ${textChannel.guild.name}`;
+			ret.nameVars = {
+				name: textChannel.name,
+				guild: textChannel.guild.name,
+			};
 			ret.avatarUrl = textChannel.guild.iconURL;
 			ret.groupId = textChannel.guild.id;
 		}
@@ -152,7 +176,9 @@ export class DiscordClass {
 		return {
 			puppetId,
 			groupId: guild.id,
-			name: guild.name,
+			nameVars: {
+				name: guild.name,
+			},
 			avatarUrl: guild.iconURL,
 			roomIds,
 			longDescription: description,
