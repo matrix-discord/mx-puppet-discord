@@ -105,7 +105,7 @@ async function run() {
 		}
 		return s;
 	});
-	puppet.setGetDastaFromStrHook(async (str: string): Promise<IRetData> => {
+	puppet.setGetDataFromStrHook(async (str: string): Promise<IRetData> => {
 		const retData = {
 			success: false,
 		} as IRetData;

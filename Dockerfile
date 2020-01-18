@@ -2,8 +2,7 @@ FROM node:latest AS builder
 
 WORKDIR /opt/mx-puppet-discord
 RUN adduser --disabled-password --gecos '' builder \
- && chown builder:builder . \
- && apk add git python2 build-base
+ && chown builder:builder .
 
 USER builder
 
