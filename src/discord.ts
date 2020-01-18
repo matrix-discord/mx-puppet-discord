@@ -4,6 +4,7 @@ import {
 	IReceiveParams,
 	IRemoteChan,
 	IRemoteUser,
+	IRemoteUserRoomOverride,
 	IRemoteGroup,
 	IMessageEvent,
 	IFileEvent,
@@ -61,6 +62,22 @@ export class DiscordClass {
 		await this.store.init();
 	}
 
+	public getRemoteUserRoomOverride(member: Discord.GuildMember, chan: Discord.Channel): IRemoteUserRoomOverride {
+		const nameVars = {
+			name: member.user.username,
+			discriminator: member.user.discriminator,
+			displayname: member.displayName,
+		} as IStringFormatterVars;
+		if (chan.type === "text") {
+			const textChan = chan as Discord.TextChannel;
+			nameVars.channel = textChan.name;
+			nameVars.guild = textChan.guild.name;
+		}
+		return {
+			nameVars,
+		} as IRemoteUserRoomOverride;
+	}
+
 	public getRemoteUser(puppetId: number, userOrMember: Discord.User | Discord.GuildMember, isWebhook: boolean = false, chan?: Discord.TextChannel): IRemoteUser {
 		let user = userOrMember as Discord.User;
 		let member: Discord.GuildMember | null = null;
@@ -81,29 +98,11 @@ export class DiscordClass {
 		if (member) {
 			response.roomOverrides = {};
 			if (chan) {
-				const overrideNameVars = Object.assign({}, nameVars, {
-					displayname: member.displayName,
-				});
-				if (chan.type === "text") {
-					const textChan = chan as Discord.TextChannel;
-					overrideNameVars.channel = textChan.name;
-					overrideNameVars.guild = textChan.guild.name;
-				}
-				response.roomOverrides[chan.id] = {
-					nameVars: overrideNameVars,
-				};
+				response.roomOverrides[chan.id] = this.getRemoteUserRoomOverride(member, chan);
 			} else {
 				for (const [, chan] of member.guild.channels) {
 					if (chan.type === "text") {
-						const textChan = chan as Discord.TextChannel;
-						const overrideNameVars = Object.assign({}, nameVars, {
-							displayname: member.displayName,
-							channel: textChan.name,
-							guild: textChan.guild.name,
-						});
-						response.roomOverrides[chan.id] = {
-							nameVars: overrideNameVars,
-						};
+						response.roomOverrides[chan.id] = this.getRemoteUserRoomOverride(member, chan);
 					}
 				}
 			}
@@ -730,9 +729,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			if (member) {
 				for (const [, chan] of guild.channels) {
 					if (chan.type === "text") {
-						remoteUser.roomOverrides[chan.id] = {
-							name: member.displayName,
-						};
+						remoteUser.roomOverrides[chan.id] = this.getRemoteUserRoomOverride(member, chan);
 					}
 				}
 			}
