@@ -89,12 +89,12 @@ async function run() {
 	puppet.on("reaction", discord.handleMatrixReaction.bind(discord));
 	puppet.on("puppetName", discord.handlePuppetName.bind(discord));
 	puppet.on("puppetAvatar", discord.handlePuppetAvatar.bind(discord));
-	puppet.setCreateChanHook(discord.createChan.bind(discord));
+	puppet.setCreateRoomHook(discord.createRoom.bind(discord));
 	puppet.setCreateUserHook(discord.createUser.bind(discord));
 	puppet.setCreateGroupHook(discord.createGroup.bind(discord));
 	puppet.setGetDmRoomIdHook(discord.getDmRoom.bind(discord));
 	puppet.setListUsersHook(discord.listUsers.bind(discord));
-	puppet.setListChansHook(discord.listChans.bind(discord));
+	puppet.setListRoomsHook(discord.listRooms.bind(discord));
 	puppet.setGetDescHook(async (puppetId: number, data: any): Promise<string> => {
 		let s = "Discord";
 		if (data.username) {

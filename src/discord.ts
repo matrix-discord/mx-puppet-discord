@@ -2,7 +2,7 @@ import {
 	PuppetBridge,
 	Log,
 	IReceiveParams,
-	IRemoteChan,
+	IRemoteRoom,
 	IRemoteUser,
 	IRemoteUserRoomOverride,
 	IRemoteGroup,
@@ -110,7 +110,7 @@ export class DiscordClass {
 		return response;
 	}
 
-	public getRemoteChan(puppetId: number, channel: Discord.Channel): IRemoteChan {
+	public getRemoteRoom(puppetId: number, channel: Discord.Channel): IRemoteRoom {
 		let roomId = channel.id;
 		if (channel.type === "dm") {
 			roomId = `dm-${(channel as Discord.DMChannel).recipient.id}`;
@@ -119,7 +119,7 @@ export class DiscordClass {
 			roomId,
 			puppetId,
 			isDirect: channel.type === "dm",
-		} as IRemoteChan;
+		} as IRemoteRoom;
 		if (channel.type === "group") {
 			const groupChannel = channel as Discord.GroupDMChannel;
 			ret.nameVars = {
@@ -135,11 +135,12 @@ export class DiscordClass {
 			};
 			ret.avatarUrl = textChannel.guild.iconURL;
 			ret.groupId = textChannel.guild.id;
+			ret.topic = textChannel.topic;
 		}
 		return ret;
 	}
 
-	public async getRemoteChanById(puppetId: number, id: string): Promise<IRemoteChan | null> {
+	public async getRemoteRoomById(puppetId: number, id: string): Promise<IRemoteRoom | null> {
 		const p = this.puppets[puppetId];
 		if (!p) {
 			return null;
@@ -148,7 +149,7 @@ export class DiscordClass {
 		if (!chan) {
 			return null;
 		}
-		return this.getRemoteChan(puppetId, chan);
+		return this.getRemoteRoom(puppetId, chan);
 	}
 
 	public async getRemoteGroup(puppetId: number, guild: Discord.Guild) {
@@ -162,7 +163,7 @@ export class DiscordClass {
 			},
 			async (chan: Discord.TextChannel) => {
 				roomIds.push(chan.id);
-				const mxid = await this.puppet.getMxidForChan({
+				const mxid = await this.puppet.getMxidForRoom({
 					puppetId,
 					roomId: chan.id,
 				});
@@ -206,7 +207,7 @@ export class DiscordClass {
 			channel = msgOrChannel as Discord.Channel;
 		}
 		return {
-			chan: this.getRemoteChan(puppetId, channel),
+			room: this.getRemoteRoom(puppetId, channel),
 			user: this.getRemoteUser(puppetId, user, isWebhook, textChannel),
 			eventId,
 			externalUrl,
@@ -224,7 +225,7 @@ export class DiscordClass {
 		}
 	}
 
-	public async handleMatrixMessage(room: IRemoteChan, data: IMessageEvent, event: any) {
+	public async handleMatrixMessage(room: IRemoteRoom, data: IMessageEvent, event: any) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -249,7 +250,7 @@ export class DiscordClass {
 		}
 	}
 
-	public async handleMatrixFile(room: IRemoteChan, data: IFileEvent, event: any) {
+	public async handleMatrixFile(room: IRemoteRoom, data: IFileEvent, event: any) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -301,7 +302,7 @@ export class DiscordClass {
 		}
 	}
 
-	public async handleMatrixRedact(room: IRemoteChan, eventId: string, event: any) {
+	public async handleMatrixRedact(room: IRemoteRoom, eventId: string, event: any) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -319,7 +320,7 @@ export class DiscordClass {
 		await msg.delete();
 	}
 
-	public async handleMatrixEdit(room: IRemoteChan, eventId: string, data: IMessageEvent, event: any) {
+	public async handleMatrixEdit(room: IRemoteRoom, eventId: string, data: IMessageEvent, event: any) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -342,7 +343,7 @@ export class DiscordClass {
 		this.sendMessageLock.release(lockKey);
 	}
 
-	public async handleMatrixReply(room: IRemoteChan, eventId: string, data: IMessageEvent, event: any) {
+	public async handleMatrixReply(room: IRemoteRoom, eventId: string, data: IMessageEvent, event: any) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -391,7 +392,7 @@ export class DiscordClass {
 		this.sendMessageLock.release(lockKey);
 	}
 
-	public async handleMatrixReaction(room: IRemoteChan, eventId: string, reaction: string, event: any) {
+	public async handleMatrixReaction(room: IRemoteRoom, eventId: string, reaction: string, event: any) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -425,12 +426,12 @@ export class DiscordClass {
 			return;
 		}
 		log.info("Received new message!");
-		if (!await this.bridgeChannel(puppetId, msg.channel)) {
+		if (!await this.bridgeRoom(puppetId, msg.channel)) {
 			log.info("Unhandled channel, dropping message...");
 			return;
 		}
 		const params = this.getSendParams(puppetId, msg);
-		const lockKey = `${puppetId};${params.chan.roomId}`;
+		const lockKey = `${puppetId};${params.room.roomId}`;
 		await this.sendMessageLock.wait(lockKey);
 		if (msg.author.id === p.client.user.id && p.sentEventIds.includes(msg.id)) {
 			// dedupe message
@@ -467,7 +468,7 @@ export class DiscordClass {
 			return;
 		}
 		const params = this.getSendParams(puppetId, msg1);
-		const lockKey = `${puppetId};${params.chan.roomId}`;
+		const lockKey = `${puppetId};${params.room.roomId}`;
 		await this.sendMessageLock.wait(lockKey);
 		if (msg1.author.id === p.client.user.id && p.sentEventIds.includes(msg1.id)) {
 			// dedupe message
@@ -475,7 +476,7 @@ export class DiscordClass {
 			p.sentEventIds.splice(ix, 1);
 			return;
 		}
-		if (!await this.bridgeChannel(puppetId, msg1.channel)) {
+		if (!await this.bridgeRoom(puppetId, msg1.channel)) {
 			log.info("Unhandled channel, dropping message...");
 			return;
 		}
@@ -508,7 +509,7 @@ export class DiscordClass {
 			return;
 		}
 		const params = this.getSendParams(puppetId, msg);
-		const lockKey = `${puppetId};${params.chan.roomId}`;
+		const lockKey = `${puppetId};${params.room.roomId}`;
 		await this.sendMessageLock.wait(lockKey);
 		if (msg.author.id === p.client.user.id && p.sentEventIds.includes(msg.id)) {
 			// dedupe message
@@ -516,7 +517,7 @@ export class DiscordClass {
 			p.sentEventIds.splice(ix, 1);
 			return;
 		}
-		if (!await this.bridgeChannel(puppetId, msg.channel)) {
+		if (!await this.bridgeRoom(puppetId, msg.channel)) {
 			log.info("Unhandled channel, dropping message...");
 			return;
 		}
@@ -639,7 +640,7 @@ export class DiscordClass {
 					return; // TODO: filter this out better
 				}
 				const chan = reaction.message.channel;
-				if (!await this.bridgeChannel(puppetId, chan)) {
+				if (!await this.bridgeRoom(puppetId, chan)) {
 					return;
 				}
 				const params = this.getSendParams(puppetId, chan, user);
@@ -655,8 +656,8 @@ export class DiscordClass {
 			}
 		});
 		client.on("channelUpdate", async (_, channel: Discord.Channel) => {
-			const remoteChan = this.getRemoteChan(puppetId, channel);
-			await this.puppet.updateChannel(remoteChan);
+			const remoteChan = this.getRemoteRoom(puppetId, channel);
+			await this.puppet.updateRoom(remoteChan);
 		});
 		client.on("guildMemberUpdate", async (oldMember: Discord.GuildMember, newMember: Discord.GuildMember) => {
 			if (oldMember.displayName !== newMember.displayName) {
@@ -673,8 +674,8 @@ export class DiscordClass {
 				const remoteGroup = await this.getRemoteGroup(puppetId, guild);
 				await this.puppet.updateGroup(remoteGroup);
 				for (const [, chan] of guild.channels) {
-					const remoteChan = this.getRemoteChan(puppetId, chan);
-					await this.puppet.updateChannel(remoteChan);
+					const remoteChan = this.getRemoteRoom(puppetId, chan);
+					await this.puppet.updateRoom(remoteChan);
 				}
 			} catch (err) {
 				log.error("Error handling discord guildUpdate event", err);
@@ -706,8 +707,8 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		delete this.puppet[puppetId];
 	}
 
-	public async createChan(chan: IRemoteChan): Promise<IRemoteChan | null> {
-		return await this.getRemoteChanById(chan.puppetId, chan.roomId);
+	public async createRoom(chan: IRemoteRoom): Promise<IRemoteRoom | null> {
+		return await this.getRemoteRoomById(chan.puppetId, chan.roomId);
 	}
 
 	public async createUser(user: IRemoteUser): Promise<IRemoteUser | null> {
@@ -798,7 +799,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		return retUsers.concat(retGuilds);
 	}
 
-	public async listChans(puppetId: number): Promise<IRetList[]> {
+	public async listRooms(puppetId: number): Promise<IRetList[]> {
 		const retGroups: IRetList[] = [];
 		const retGuilds: IRetList[] = [];
 		const p = this.puppets[puppetId];
@@ -899,8 +900,8 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			}
 			const permissions = chan.memberPermissions(p.client.user);
 			if (!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number)) {
-				const remoteChan = this.getRemoteChan(puppetId, chan);
-				await this.puppet.bridgeChannel(remoteChan);
+				const remoteChan = this.getRemoteRoom(puppetId, chan);
+				await this.puppet.bridgeRoom(remoteChan);
 			}
 		}
 		await sendMessage(`Invited to all channels in guild ${guild.name}!`);
@@ -1148,7 +1149,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		}
 	}
 
-	private async bridgeChannel(puppetId: number, chan: Discord.Channel): Promise<boolean> {
+	private async bridgeRoom(puppetId: number, chan: Discord.Channel): Promise<boolean> {
 		if (["dm", "group"].includes(chan.type)) {
 			return true; // we handle all dm and group channels
 		}
@@ -1164,7 +1165,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		return false;
 	}
 
-	private async sendMessageFail(room: IRemoteChan) {
+	private async sendMessageFail(room: IRemoteRoom) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
