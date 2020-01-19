@@ -1213,6 +1213,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 				getEmoji: async (mxc: string, name: string) => null, // TODO: handle emoji
 				mxcUrlToHttp: (mxc: string) => this.puppet.getUrlFromMxc(mxc),
 			},
+			determineCodeLanguage: true,
 		} as IMatrixMessageParserOpts;
 		const msg = await this.matrixMsgParser.FormatMessage(opts, eventContent);
 		return msg;
