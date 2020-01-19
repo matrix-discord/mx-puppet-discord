@@ -78,7 +78,12 @@ export class DiscordClass {
 		} as IRemoteUserRoomOverride;
 	}
 
-	public getRemoteUser(puppetId: number, userOrMember: Discord.User | Discord.GuildMember, isWebhook: boolean = false, chan?: Discord.TextChannel): IRemoteUser {
+	public getRemoteUser(
+		puppetId: number,
+		userOrMember: Discord.User | Discord.GuildMember,
+		isWebhook: boolean = false,
+		chan?: Discord.TextChannel,
+	): IRemoteUser {
 		let user = userOrMember as Discord.User;
 		let member: Discord.GuildMember | null = null;
 		if ((userOrMember as Discord.GuildMember).guild) {
@@ -100,9 +105,9 @@ export class DiscordClass {
 			if (chan) {
 				response.roomOverrides[chan.id] = this.getRemoteUserRoomOverride(member, chan);
 			} else {
-				for (const [, chan] of member.guild.channels) {
-					if (chan.type === "text") {
-						response.roomOverrides[chan.id] = this.getRemoteUserRoomOverride(member, chan);
+				for (const [, gchan] of member.guild.channels) {
+					if (gchan.type === "text") {
+						response.roomOverrides[gchan.id] = this.getRemoteUserRoomOverride(member, gchan);
 					}
 				}
 			}
@@ -185,7 +190,11 @@ export class DiscordClass {
 		} as IRemoteGroup;
 	}
 
-	public getSendParams(puppetId: number, msgOrChannel: Discord.Message | Discord.Channel, user?: Discord.User | Discord.GuildMember): IReceiveParams {
+	public getSendParams(
+		puppetId: number,
+		msgOrChannel: Discord.Message | Discord.Channel,
+		user?: Discord.User | Discord.GuildMember,
+	): IReceiveParams {
 		let channel: Discord.Channel;
 		let eventId: string | undefined;
 		let externalUrl: string | undefined;
