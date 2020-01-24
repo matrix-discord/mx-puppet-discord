@@ -439,6 +439,37 @@ export class DiscordClass {
 		}
 	}
 
+	public async handleMatrixRemoveReaction(room: IRemoteRoom, eventId: string, reaction: string, event: any) {
+		const p = this.puppets[room.puppetId];
+		if (!p) {
+			return;
+		}
+		const chan = await this.getDiscordChan(p.client, room.roomId);
+		if (!chan) {
+			log.warn("Channel not found", room);
+			return;
+		}
+		log.verbose(`Removing reaction to ${eventId} with ${reaction}...`);
+		const msg = await chan.fetchMessage(eventId);
+		if (!msg) {
+			return;
+		}
+		let emoji: Discord.Emoji | null = null;
+		if (reaction.startsWith("mxc://")) {
+			emoji = await this.getDiscordEmoji(p.client, reaction);
+		}
+		for (const [, r] of msg.reactions) {
+			if (r.emoji.name === reaction) {
+				await r.remove();
+				break;
+			}
+			if (emoji && emoji.id === r.emoji.id) {
+				await r.remove();
+				break;
+			}
+		}
+	}
+
 	public async handleDiscordMessage(puppetId: number, msg: Discord.Message) {
 		const p = this.puppets[puppetId];
 		if (!p) {
@@ -658,9 +689,7 @@ export class DiscordClass {
 		});
 		client.on("messageReactionAdd", async (reaction: Discord.MessageReaction, user: Discord.User) => {
 			try {
-				if (reaction.me) {
-					return; // TODO: filter this out better
-				}
+				// TODO: filter out echo back?
 				const chan = reaction.message.channel;
 				if (!await this.bridgeRoom(puppetId, chan)) {
 					return;
@@ -675,6 +704,48 @@ export class DiscordClass {
 				}
 			} catch (err) {
 				log.error("Error handling discord messageReactionAdd event", err.error || err.body || err);
+			}
+		});
+		client.on("messageReactionRemove", async (reaction: Discord.MessageReaction, user: Discord.User) => {
+			try {
+				// TODO: filter out echo back?
+				const chan = reaction.message.channel;
+				if (!await this.bridgeRoom(puppetId, chan)) {
+					return;
+				}
+				const params = this.getSendParams(puppetId, chan, user);
+				if (reaction.emoji instanceof Discord.Emoji) {
+					const emoji = reaction.emoji as Discord.Emoji;
+					const mxc = await this.getEmojiMxc(emoji.name, emoji.animated, emoji.id);
+					await this.puppet.removeReaction(params, reaction.message.id, mxc || reaction.emoji.name);
+				} else {
+					await this.puppet.removeReaction(params, reaction.message.id, reaction.emoji.name);
+				}
+			} catch (err) {
+				log.error("Error handling discord messageReactionRemove event", err.error || err.body || err);
+			}
+		});
+		client.on("messageReactionRemoveAll", async (message: Discord.Message) => {
+			try {
+				const chan = message.channel;
+				if (!await this.bridgeRoom(puppetId, chan)) {
+					return;
+				}
+				// alright, let's fetch *an* admin user
+				let user: Discord.User;
+				if (chan.type === "text") {
+					user = (chan as Discord.TextChannel).guild.owner.user;
+				} else if (chan.type === "dm") {
+					user = (chan as Discord.DMChannel).recipient;
+				} else if (chan.type === "group") {
+					user = (chan as Discord.GroupDMChannel).owner;
+				} else {
+					return;
+				}
+				const params = this.getSendParams(puppetId, chan, user);
+				await this.puppet.removeAllReactions(params, message.id);
+			} catch (err) {
+				log.error("Error handling discord messageReactionRemoveAll event", err.error || err.body || err);
 			}
 		});
 		client.on("channelUpdate", async (_, channel: Discord.Channel) => {

@@ -100,6 +100,7 @@ async function run() {
 	puppet.on("edit", discord.handleMatrixEdit.bind(discord));
 	puppet.on("reply", discord.handleMatrixReply.bind(discord));
 	puppet.on("reaction", discord.handleMatrixReaction.bind(discord));
+	puppet.on("removeReaction", discord.handleMatrixRemoveReaction.bind(discord));
 	puppet.on("puppetName", discord.handlePuppetName.bind(discord));
 	puppet.on("puppetAvatar", discord.handlePuppetAvatar.bind(discord));
 	puppet.setCreateRoomHook(discord.createRoom.bind(discord));
