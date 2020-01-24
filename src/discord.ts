@@ -592,21 +592,21 @@ export class DiscordClass {
 			try {
 				await this.handleDiscordMessage(puppetId, msg);
 			} catch (err) {
-				log.error("Error handling discord message event", err);
+				log.error("Error handling discord message event", err.error || err.body || err);
 			}
 		});
 		client.on("messageUpdate", async (msg1: Discord.Message, msg2: Discord.Message) => {
 			try {
 				await this.handleDiscordMessageUpdate(puppetId, msg1, msg2);
 			} catch (err) {
-				log.error("Error handling discord messageUpdate event", err);
+				log.error("Error handling discord messageUpdate event", err.error || err.body || err);
 			}
 		});
 		client.on("messageDelete", async (msg: Discord.Message) => {
 			try {
 				await this.handleDiscordMessageDelete(puppetId, msg);
 			} catch (err) {
-				log.error("Error handling discord messageDelete event", err);
+				log.error("Error handling discord messageDelete event", err.error || err.body || err);
 			}
 		});
 		client.on("messageDeleteBulk", async (msgs: Discord.Collection<Discord.Snowflake, Discord.Message>) => {
@@ -614,7 +614,7 @@ export class DiscordClass {
 				try {
 					await this.handleDiscordMessageDelete(puppetId, msg);
 				} catch (err) {
-					log.error("Error handling one discord messageDeleteBulk event", err);
+					log.error("Error handling one discord messageDeleteBulk event", err.error || err.body || err);
 				}
 			}
 		});
@@ -623,7 +623,7 @@ export class DiscordClass {
 				const params = this.getSendParams(puppetId, chan, user);
 				await this.puppet.setUserTyping(params, true);
 			} catch (err) {
-				log.error("Error handling discord typingStart event", err);
+				log.error("Error handling discord typingStart event", err.error || err.body || err);
 			}
 		});
 		client.on("typingStop", async (chan: Discord.Channel, user: Discord.User) => {
@@ -631,7 +631,7 @@ export class DiscordClass {
 				const params = this.getSendParams(puppetId, chan, user);
 				await this.puppet.setUserTyping(params, false);
 			} catch (err) {
-				log.error("Error handling discord typingStop event", err);
+				log.error("Error handling discord typingStop event", err.error || err.body || err);
 			}
 		});
 		client.on("presenceUpdate", async (_, member: Discord.GuildMember | Discord.User) => {
@@ -653,7 +653,7 @@ export class DiscordClass {
 				await this.puppet.setUserPresence(remoteUser, matrixPresence);
 				await this.puppet.setUserStatus(remoteUser, statusMsg);
 			} catch (err) {
-				log.error("Error handling discord presenceUpdate event", err);
+				log.error("Error handling discord presenceUpdate event", err.error || err.body || err);
 			}
 		});
 		client.on("messageReactionAdd", async (reaction: Discord.MessageReaction, user: Discord.User) => {
@@ -666,7 +666,7 @@ export class DiscordClass {
 					return;
 				}
 				const params = this.getSendParams(puppetId, chan, user);
-				if ((reaction.emoji as Discord.Emoji).url) {
+				if (reaction.emoji instanceof Discord.Emoji) {
 					const emoji = reaction.emoji as Discord.Emoji;
 					const mxc = await this.getEmojiMxc(emoji.name, emoji.animated, emoji.id);
 					await this.puppet.sendReaction(params, reaction.message.id, mxc || reaction.emoji.name);
@@ -674,7 +674,7 @@ export class DiscordClass {
 					await this.puppet.sendReaction(params, reaction.message.id, reaction.emoji.name);
 				}
 			} catch (err) {
-				log.error("Error handling discord messageReactionAdd event", err);
+				log.error("Error handling discord messageReactionAdd event", err.error || err.body || err);
 			}
 		});
 		client.on("channelUpdate", async (_, channel: Discord.Channel) => {
@@ -700,7 +700,7 @@ export class DiscordClass {
 					await this.puppet.updateRoom(remoteChan);
 				}
 			} catch (err) {
-				log.error("Error handling discord guildUpdate event", err);
+				log.error("Error handling discord guildUpdate event", err.error || err.body || err);
 			}
 		});
 		client.on("relationshipAdd", async (relationship: Discord.Relationship) => {
