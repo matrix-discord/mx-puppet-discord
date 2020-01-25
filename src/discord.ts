@@ -1242,13 +1242,34 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		} else {
 			user = userOrMember;
 		}
+		const presence = user.presence;
 		const matrixPresence = {
 			online: "online",
 			idle: "unavailable",
 			dnd: "unavailable",
 			offline: "offline",
-		}[user.presence.status] as "online" | "offline" | "unavailable";
-		const statusMsg = user.presence.game ? user.presence.game.name : "";
+		}[presence.status] as "online" | "offline" | "unavailable";
+		let statusMsg = "";
+		if (presence.game) {
+			const game = presence.game;
+			if (game.type <= 3) {
+				statusMsg = [
+					"Playing ",
+					"Streaming ",
+					"Listening ",
+					"Watching ",
+				][game.type] + game.name;
+			} else {
+				const statusParts: string[] = [];
+				if (game.emoji) {
+					statusParts.push(game.emoji.name);
+				}
+				if (game.state) {
+					statusParts.push(game.state);
+				}
+				statusMsg = statusParts.join(" ");
+			}
+		}
 		const remoteUser = this.getRemoteUser(puppetId, user);
 		await this.puppet.setUserPresence(remoteUser, matrixPresence);
 		await this.puppet.setUserStatus(remoteUser, statusMsg);
