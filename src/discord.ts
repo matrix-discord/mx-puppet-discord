@@ -1302,7 +1302,13 @@ Additionally you will be invited to guild channels as messages are sent in them.
 					}
 					return parts.userId;
 				},
-				getChannelId: async (mxid: string) => null,
+				getChannelId: async (mxid: string) => {
+					const parts = await this.puppet.roomSync.getPartsFromMxid(mxid);
+					if (!parts || parts.puppetId !== puppetId) {
+						return null;
+					}
+					return parts.roomId;
+				},
 				getEmoji: async (mxc: string, name: string) => null, // TODO: handle emoji
 				mxcUrlToHttp: (mxc: string) => this.puppet.getUrlFromMxc(mxc),
 			},
@@ -1386,7 +1392,21 @@ Additionally you will be invited to guild channels as messages are sent in them.
 					name,
 				};
 			},
-			getChannel: async (id: string) => null, // we don't handle channels
+			getChannel: async (id: string) => {
+				const mxid = await this.puppet.getMxidForRoom({
+					puppetId,
+					roomId: id,
+				});
+				let name = mxid;
+				const chan = await this.getDiscordChan(p.client, id);
+				if (chan && !(chan instanceof Discord.DMChannel)) {
+					name = chan.name;
+				}
+				return {
+					mxid,
+					name,
+				};
+			},
 			getEmoji: this.getEmojiMxc.bind(this),
 		} as IDiscordMessageParserCallbacks;
 	}
