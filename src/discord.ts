@@ -618,6 +618,10 @@ export class DiscordClass {
 			await this.puppet.setPuppetData(puppetId, d);
 			await this.puppet.sendStatusMessage(puppetId, "connected");
 			await this.updateUserInfo(puppetId);
+			// set initial presence for everyone
+			for (const [, user] of client.users) {
+				await this.updatePresence(puppetId, user);
+			}
 		});
 		client.on("message", async (msg: Discord.Message) => {
 			try {
@@ -667,22 +671,7 @@ export class DiscordClass {
 		});
 		client.on("presenceUpdate", async (_, member: Discord.GuildMember | Discord.User) => {
 			try {
-				let user: Discord.User;
-				if ((member as Discord.GuildMember).user) {
-					user = (member as Discord.GuildMember).user;
-				} else {
-					user = member as Discord.User;
-				}
-				const matrixPresence = {
-					online: "online",
-					idle: "unavailable",
-					dnd: "unavailable",
-					offline: "offline",
-				}[user.presence.status] as "online" | "offline" | "unavailable";
-				const statusMsg = member.presence.game ? member.presence.game.name : "";
-				const remoteUser = this.getRemoteUser(puppetId, user);
-				await this.puppet.setUserPresence(remoteUser, matrixPresence);
-				await this.puppet.setUserStatus(remoteUser, statusMsg);
+				await this.updatePresence(puppetId, member);
 			} catch (err) {
 				log.error("Error handling discord presenceUpdate event", err.error || err.body || err);
 			}
@@ -1240,6 +1229,29 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			await sendMessage("User not found");
 			log.warn(`Couldn't find user ${param}:`, err);
 		}
+	}
+
+	private async updatePresence(puppetId: number, userOrMember: Discord.GuildMember | Discord.User) {
+		const p = this.puppets[puppetId];
+		if (!p) {
+			return;
+		}
+		let user: Discord.User;
+		if (userOrMember instanceof Discord.GuildMember) {
+			user = userOrMember.user;
+		} else {
+			user = userOrMember;
+		}
+		const matrixPresence = {
+			online: "online",
+			idle: "unavailable",
+			dnd: "unavailable",
+			offline: "offline",
+		}[user.presence.status] as "online" | "offline" | "unavailable";
+		const statusMsg = user.presence.game ? user.presence.game.name : "";
+		const remoteUser = this.getRemoteUser(puppetId, user);
+		await this.puppet.setUserPresence(remoteUser, matrixPresence);
+		await this.puppet.setUserStatus(remoteUser, statusMsg);
 	}
 
 	private async bridgeRoom(puppetId: number, chan: Discord.Channel): Promise<boolean> {
