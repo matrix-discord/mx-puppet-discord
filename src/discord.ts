@@ -23,7 +23,7 @@ import {
 	IFileEvent,
 	Util,
 	IRetList,
-	Lock,
+	MessageDeduplicator,
 	SendMessageFn,
 	IStringFormatterVars,
 } from "mx-puppet-bridge";
@@ -43,13 +43,11 @@ import * as escapeHtml from "escape-html";
 const log = new Log("DiscordPuppet:Discord");
 
 const MAXFILESIZE = 8000000;
-const SEND_LOOCK_TIMEOUT = 30000;
 const MAX_MSG_SIZE = 4000;
 
 interface IDiscordPuppet {
 	client: Discord.Client;
 	data: any;
-	sentEventIds: string[];
 }
 
 interface IDiscordPuppets {
@@ -60,14 +58,14 @@ export class DiscordClass {
 	private puppets: IDiscordPuppets = {};
 	private discordMsgParser: DiscordMessageParser;
 	private matrixMsgParser: MatrixMessageParser;
-	private sendMessageLock: Lock<string>;
+	private messageDeduplicator: MessageDeduplicator;
 	private store: DiscordStore;
 	constructor(
 		private puppet: PuppetBridge,
 	) {
 		this.discordMsgParser = new DiscordMessageParser();
 		this.matrixMsgParser = new MatrixMessageParser();
-		this.sendMessageLock = new Lock(SEND_LOOCK_TIMEOUT);
+		this.messageDeduplicator = new MessageDeduplicator();
 		this.store = new DiscordStore(puppet.store);
 	}
 
@@ -242,8 +240,9 @@ export class DiscordClass {
 			msgs = [msgs];
 		}
 		for (const m of msgs) {
+			const lockKey = `${puppetId};${m.channel.id}`;
 			await this.puppet.eventStore.insert(puppetId, matrixId, m.id);
-			p.sentEventIds.push(m.id);
+			this.messageDeduplicator.unlock(lockKey, p.client.user.id, m.id);
 		}
 	}
 
@@ -259,15 +258,14 @@ export class DiscordClass {
 		}
 
 		const sendMsg = await this.parseMatrixMessage(room.puppetId, event.content);
-		const lockKey = `${room.puppetId};${room.roomId}`;
-		this.sendMessageLock.set(lockKey);
+		const lockKey = `${room.puppetId};${chan.id}`;
+		this.messageDeduplicator.lock(lockKey, p.client.user.id, sendMsg);
 		try {
 			const reply = await chan.send(sendMsg);
 			await this.insertNewEventId(room.puppetId, data.eventId!, reply);
-			this.sendMessageLock.release(lockKey);
 		} catch (err) {
 			log.warn("Couldn't send message", err);
-			this.sendMessageLock.release(lockKey);
+			this.messageDeduplicator.unlock(lockKey);
 			await this.sendMessageFail(room);
 		}
 	}
@@ -285,26 +283,25 @@ export class DiscordClass {
 
 		let size = data.info ? data.info.size || 0 : 0;
 		const mimetype = data.info ? data.info.mimetype || "" : "";
-		const lockKey = `${room.puppetId};${room.roomId}`;
+		const lockKey = `${room.puppetId};${chan.id}`;
 		if (size < MAXFILESIZE) {
 			const attachment = await Util.DownloadFile(data.url);
 			size = attachment.byteLength;
 			if (size < MAXFILESIZE) {
 				// send as attachment
 				const filename = this.getFilenameForMedia(data.filename, mimetype);
-				this.sendMessageLock.set(lockKey);
+				this.messageDeduplicator.lock(lockKey, p.client.user.id, `file:${filename}`);
 				try {
 					const reply = await chan.send(new Discord.Attachment(attachment, filename));
 					await this.insertNewEventId(room.puppetId, data.eventId!, reply);
-					this.sendMessageLock.release(lockKey);
 					return;
 				} catch (err) {
-					this.sendMessageLock.release(lockKey);
+					this.messageDeduplicator.unlock(lockKey);
 					log.warn("Couldn't send media message, retrying as embed/url", err);
 				}
 			}
 		}
-		this.sendMessageLock.set(lockKey);
+		this.messageDeduplicator.lock(lockKey);
 		try {
 			if (mimetype && mimetype.split("/")[0] === "image" && p.client.user.bot) {
 				const embed = new Discord.RichEmbed()
@@ -316,10 +313,9 @@ export class DiscordClass {
 				const reply = await chan.send(`Uploaded File: [${data.filename}](${data.url})`);
 				await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 			}
-			this.sendMessageLock.release(lockKey);
 		} catch (err) {
 			log.warn("Couldn't send media message", err);
-			this.sendMessageLock.release(lockKey);
+			this.messageDeduplicator.unlock(lockKey);
 			await this.sendMessageFail(room);
 		}
 	}
@@ -358,11 +354,16 @@ export class DiscordClass {
 			return;
 		}
 		const sendMsg = await this.parseMatrixMessage(room.puppetId, event.content["m.new_content"]);
-		const lockKey = `${room.puppetId};${room.roomId}`;
-		this.sendMessageLock.set(lockKey);
-		const reply = await msg.edit(sendMsg);
-		await this.insertNewEventId(room.puppetId, data.eventId!, reply);
-		this.sendMessageLock.release(lockKey);
+		const lockKey = `${room.puppetId};${chan.id}`;
+		this.messageDeduplicator.lock(lockKey, p.client.user.id, sendMsg);
+		try {
+			const reply = await msg.edit(sendMsg);
+			await this.insertNewEventId(room.puppetId, data.eventId!, reply);
+		} catch (err) {
+			log.warn("Couldn't edit message", err);
+			this.messageDeduplicator.unlock(lockKey);
+			await this.sendMessageFail(room);
+		}
 	}
 
 	public async handleMatrixReply(room: IRemoteRoom, eventId: string, data: IMessageEvent, event: any) {
@@ -401,17 +402,23 @@ export class DiscordClass {
 				replyEmbed.description += `[${attach.filename}](attach.proxyURL)`;
 			}
 		}
-		const lockKey = `${room.puppetId};${room.roomId}`;
-		this.sendMessageLock.set(lockKey);
-		let reply;
-		if (p.client.user.bot) {
-			reply = await chan.send(sendMsg, replyEmbed);
-		} else {
-			sendMsg += `\n>>> ${replyEmbed.description}`;
-			reply = await chan.send(sendMsg);
+		const lockKey = `${room.puppetId};${chan.id}`;
+		try {
+			let reply;
+			if (p.client.user.bot) {
+				this.messageDeduplicator.lock(lockKey, p.client.user.id, sendMsg);
+				reply = await chan.send(sendMsg, replyEmbed);
+			} else {
+				sendMsg += `\n>>> ${replyEmbed.description}`;
+				this.messageDeduplicator.lock(lockKey, p.client.user.id, sendMsg);
+				reply = await chan.send(sendMsg);
+			}
+			await this.insertNewEventId(room.puppetId, data.eventId!, reply);
+		} catch (err) {
+			log.warn("Couldn't send reply", err);
+			this.messageDeduplicator.unlock(lockKey);
+			await this.sendMessageFail(room);
 		}
-		await this.insertNewEventId(room.puppetId, data.eventId!, reply);
-		this.sendMessageLock.release(lockKey);
 	}
 
 	public async handleMatrixReaction(room: IRemoteRoom, eventId: string, reaction: string, event: any) {
@@ -484,12 +491,10 @@ export class DiscordClass {
 			return;
 		}
 		const params = this.getSendParams(puppetId, msg);
-		const lockKey = `${puppetId};${params.room.roomId}`;
-		await this.sendMessageLock.wait(lockKey);
-		if (msg.author.id === p.client.user.id && p.sentEventIds.includes(msg.id)) {
+		const lockKey = `${puppetId};${msg.channel.id}`;
+		const dedupeMsg = msg.attachments.first() ? `file:${msg.attachments.first().filename}` : msg.content;
+		if (await this.messageDeduplicator.dedupe(lockKey, msg.author.id, msg.id, dedupeMsg)) {
 			// dedupe message
-			const ix = p.sentEventIds.indexOf(msg.id);
-			p.sentEventIds.splice(ix, 1);
 			return;
 		}
 		const externalUrl = params.externalUrl;
@@ -521,12 +526,9 @@ export class DiscordClass {
 			return;
 		}
 		const params = this.getSendParams(puppetId, msg1);
-		const lockKey = `${puppetId};${params.room.roomId}`;
-		await this.sendMessageLock.wait(lockKey);
-		if (msg1.author.id === p.client.user.id && p.sentEventIds.includes(msg1.id)) {
+		const lockKey = `${puppetId};${msg1.channel.id}`;
+		if (await this.messageDeduplicator.dedupe(lockKey, msg2.author.id, msg2.id, msg2.content)) {
 			// dedupe message
-			const ix = p.sentEventIds.indexOf(msg1.id);
-			p.sentEventIds.splice(ix, 1);
 			return;
 		}
 		if (!await this.bridgeRoom(puppetId, msg1.channel)) {
@@ -562,12 +564,9 @@ export class DiscordClass {
 			return;
 		}
 		const params = this.getSendParams(puppetId, msg);
-		const lockKey = `${puppetId};${params.room.roomId}`;
-		await this.sendMessageLock.wait(lockKey);
-		if (msg.author.id === p.client.user.id && p.sentEventIds.includes(msg.id)) {
+		const lockKey = `${puppetId};${msg.channel.id}`;
+		if (await this.messageDeduplicator.dedupe(lockKey, msg.author.id, msg.id, msg.content)) {
 			// dedupe message
-			const ix = p.sentEventIds.indexOf(msg.id);
-			p.sentEventIds.splice(ix, 1);
 			return;
 		}
 		if (!await this.bridgeRoom(puppetId, msg.channel)) {
@@ -774,7 +773,6 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		this.puppets[puppetId] = {
 			client,
 			data,
-			sentEventIds: [],
 		};
 		await client.login(data.token);
 	}
