@@ -43,7 +43,7 @@ export class DiscordStore {
 		return {
 			emojiId: row.emoji_id as string,
 			name: row.name as string,
-			animated: Boolean(row.animated), // they are stored as numbers
+			animated: Boolean(Number(row.animated)), // they are stored as numbers
 			mxcUrl: row.mxc_url as string,
 		} as IDbEmoji;
 	}
@@ -56,7 +56,7 @@ export class DiscordStore {
 		return {
 			emojiId: row.emoji_id as string,
 			name: row.name as string,
-			animated: Boolean(row.animated), // they are stored as numbers
+			animated: Boolean(Number(row.animated)), // they are stored as numbers
 			mxcUrl: row.mxc_url as string,
 		} as IDbEmoji;
 	}
