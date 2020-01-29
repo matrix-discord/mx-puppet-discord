@@ -1270,7 +1270,9 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		}
 		const remoteUser = this.getRemoteUser(puppetId, user);
 		await this.puppet.setUserPresence(remoteUser, matrixPresence);
-		await this.puppet.setUserStatus(remoteUser, statusMsg);
+		if (statusMsg) {
+			await this.puppet.setUserStatus(remoteUser, statusMsg);
+		}
 	}
 
 	private async bridgeRoom(puppetId: number, chan: Discord.Channel): Promise<boolean> {
