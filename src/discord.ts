@@ -108,7 +108,7 @@ export class DiscordClass {
 		const response = {
 			userId: isWebhook ? `webhook-${user.id}-${user.username}` : user.id,
 			puppetId,
-			avatarUrl: user.avatarURL,
+			avatarUrl: user.avatarURL({ format: "png", dynamic: true }),
 			nameVars,
 		} as IRemoteUser;
 		if (member) {
@@ -141,7 +141,7 @@ export class DiscordClass {
 			ret.nameVars = {
 				name: groupChannel.name,
 			};
-			ret.avatarUrl = groupChannel.iconURL;
+			ret.avatarUrl = groupChannel.iconURL({ format: "png", dynamic: true });
 		}
 		if (channel.type === "text") {
 			const textChannel = channel as Discord.TextChannel;
@@ -149,10 +149,11 @@ export class DiscordClass {
 				name: textChannel.name,
 				guild: textChannel.guild.name,
 			};
-			ret.avatarUrl = textChannel.guild.iconURL;
+			ret.avatarUrl = textChannel.guild.iconURL({ format: "png", dynamic: true });
 			ret.groupId = textChannel.guild.id;
 			ret.topic = textChannel.topic;
 		}
+		log.silly(ret);
 		return ret;
 	}
 
@@ -195,7 +196,7 @@ export class DiscordClass {
 			nameVars: {
 				name: guild.name,
 			},
-			avatarUrl: guild.iconURL,
+			avatarUrl: guild.iconURL({ format: "png", dynamic: true }),
 			roomIds,
 			longDescription: description,
 		} as IRemoteGroup;
@@ -242,7 +243,7 @@ export class DiscordClass {
 		for (const m of msgs) {
 			const lockKey = `${puppetId};${m.channel.id}`;
 			await this.puppet.eventStore.insert(puppetId, matrixId, m.id);
-			this.messageDeduplicator.unlock(lockKey, p.client.user.id, m.id);
+			this.messageDeduplicator.unlock(lockKey, p.client.user!.id, m.id);
 		}
 	}
 
@@ -259,7 +260,7 @@ export class DiscordClass {
 
 		const sendMsg = await this.parseMatrixMessage(room.puppetId, event.content);
 		const lockKey = `${room.puppetId};${chan.id}`;
-		this.messageDeduplicator.lock(lockKey, p.client.user.id, sendMsg);
+		this.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
 		try {
 			const reply = await chan.send(sendMsg);
 			await this.insertNewEventId(room.puppetId, data.eventId!, reply);
@@ -290,9 +291,9 @@ export class DiscordClass {
 			if (size < MAXFILESIZE) {
 				// send as attachment
 				const filename = this.getFilenameForMedia(data.filename, mimetype);
-				this.messageDeduplicator.lock(lockKey, p.client.user.id, `file:${filename}`);
+				this.messageDeduplicator.lock(lockKey, p.client.user!.id, `file:${filename}`);
 				try {
-					const reply = await chan.send(new Discord.Attachment(attachment, filename));
+					const reply = await chan.send(new Discord.MessageAttachment(attachment, filename));
 					await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 					return;
 				} catch (err) {
@@ -303,8 +304,8 @@ export class DiscordClass {
 		}
 		this.messageDeduplicator.lock(lockKey);
 		try {
-			if (mimetype && mimetype.split("/")[0] === "image" && p.client.user.bot) {
-				const embed = new Discord.RichEmbed()
+			if (mimetype && mimetype.split("/")[0] === "image" && p.client.user!.bot) {
+				const embed = new Discord.MessageEmbed()
 					.setTitle(data.filename)
 					.setImage(data.url);
 				const reply = await chan.send(embed);
@@ -327,11 +328,11 @@ export class DiscordClass {
 		}
 		const chan = await this.getDiscordChan(p.client, room.roomId);
 		if (!chan) {
-			log.warn("Channel not foundp.client.user.bot", room);
+			log.warn("Channel not foundp.client.user!.bot", room);
 			return;
 		}
 		log.verbose(`Deleting message with ID ${eventId}...`);
-		const msg = await chan.fetchMessage(eventId);
+		const msg = await chan.messages.fetch(eventId);
 		if (!msg) {
 			return;
 		}
@@ -349,13 +350,13 @@ export class DiscordClass {
 			return;
 		}
 		log.verbose(`Editing message with ID ${eventId}...`);
-		const msg = await chan.fetchMessage(eventId);
+		const msg = await chan.messages.fetch(eventId);
 		if (!msg) {
 			return;
 		}
 		const sendMsg = await this.parseMatrixMessage(room.puppetId, event.content["m.new_content"]);
 		const lockKey = `${room.puppetId};${chan.id}`;
-		this.messageDeduplicator.lock(lockKey, p.client.user.id, sendMsg);
+		this.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
 		try {
 			const reply = await msg.edit(sendMsg);
 			await this.insertNewEventId(room.puppetId, data.eventId!, reply);
@@ -377,15 +378,15 @@ export class DiscordClass {
 			return;
 		}
 		log.verbose(`Replying to message with ID ${eventId}...`);
-		const msg = await chan.fetchMessage(eventId);
+		const msg = await chan.messages.fetch(eventId);
 		if (!msg) {
 			return;
 		}
 		let sendMsg = await this.parseMatrixMessage(room.puppetId, event.content);
-		const replyEmbed = new Discord.RichEmbed()
+		const replyEmbed = new Discord.MessageEmbed()
 			.setTimestamp(new Date(msg.createdAt))
 			.setDescription(msg.content)
-			.setAuthor(msg.author.username, msg.author.avatarURL);
+			.setAuthor(msg.author.username, msg.author.avatarURL({ format: "png", dynamic: true }) || undefined);
 		if (msg.embeds && msg.embeds[0]) {
 			const msgEmbed = msg.embeds[0];
 			// if an author is set it wasn't an image embed thingy we send
@@ -395,22 +396,22 @@ export class DiscordClass {
 		}
 		if (msg.attachments.first()) {
 			const attach = msg.attachments.first();
-			if (attach.height) {
+			if (attach!.height) {
 				// image!
-				replyEmbed.setImage(attach.proxyURL);
+				replyEmbed.setImage(attach!.proxyURL);
 			} else {
-				replyEmbed.description += `[${attach.filename}](attach.proxyURL)`;
+				replyEmbed.description += `[${attach!.name}](attach!.proxyURL)`;
 			}
 		}
 		const lockKey = `${room.puppetId};${chan.id}`;
 		try {
 			let reply;
-			if (p.client.user.bot) {
-				this.messageDeduplicator.lock(lockKey, p.client.user.id, sendMsg);
+			if (p.client.user!.bot) {
+				this.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
 				reply = await chan.send(sendMsg, replyEmbed);
 			} else {
 				sendMsg += `\n>>> ${replyEmbed.description}`;
-				this.messageDeduplicator.lock(lockKey, p.client.user.id, sendMsg);
+				this.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
 				reply = await chan.send(sendMsg);
 			}
 			await this.insertNewEventId(room.puppetId, data.eventId!, reply);
@@ -432,7 +433,7 @@ export class DiscordClass {
 			return;
 		}
 		log.verbose(`Reacting to ${eventId} with ${reaction}...`);
-		const msg = await chan.fetchMessage(eventId);
+		const msg = await chan.messages.fetch(eventId);
 		if (!msg) {
 			return;
 		}
@@ -457,7 +458,7 @@ export class DiscordClass {
 			return;
 		}
 		log.verbose(`Removing reaction to ${eventId} with ${reaction}...`);
-		const msg = await chan.fetchMessage(eventId);
+		const msg = await chan.messages.fetch(eventId);
 		if (!msg) {
 			return;
 		}
@@ -492,15 +493,15 @@ export class DiscordClass {
 		}
 		const params = this.getSendParams(puppetId, msg);
 		const lockKey = `${puppetId};${msg.channel.id}`;
-		const dedupeMsg = msg.attachments.first() ? `file:${msg.attachments.first().filename}` : msg.content;
+		const dedupeMsg = msg.attachments.first() ? `file:${msg.attachments.first()!.name}` : msg.content;
 		if (await this.messageDeduplicator.dedupe(lockKey, msg.author.id, msg.id, dedupeMsg)) {
 			// dedupe message
 			return;
 		}
 		const externalUrl = params.externalUrl;
-		for ( const [, attachment] of Array.from(msg.attachments)) {
+		for ( const [, attachment] of msg.attachments) {
 			params.externalUrl = attachment.url;
-			await this.puppet.sendFileDetect(params, attachment.url, attachment.filename);
+			await this.puppet.sendFileDetect(params, attachment.url, attachment.name);
 		}
 		params.externalUrl = externalUrl;
 		if (msg.content) {
@@ -578,12 +579,12 @@ export class DiscordClass {
 
 	public async handlePuppetName(puppetId: number, name: string) {
 		const p = this.puppets[puppetId];
-		if (!p || !p.data.syncProfile || !p.client.user.bot) {
+		if (!p || !p.data.syncProfile || !p.client.user!.bot) {
 			// bots can't change their name
 			return;
 		}
 		try {
-			await p.client.user.setUsername(name);
+			await p.client.user!.setUsername(name);
 		} catch (err) {
 			log.warn(`Couldn't set name for ${puppetId}`, err);
 		}
@@ -597,7 +598,7 @@ export class DiscordClass {
 		try {
 			url = url.replace("download", "thumbnail") + "?width=800&height=800";
 			const buffer = await Util.DownloadFile(url);
-			await p.client.user.setAvatar(buffer);
+			await p.client.user!.setAvatar(buffer);
 		} catch (err) {
 			log.warn(`Couldn't set avatar for ${puppetId}`, err);
 		}
@@ -611,15 +612,15 @@ export class DiscordClass {
 		const client = new Discord.Client();
 		client.on("ready", async () => {
 			const d = this.puppets[puppetId].data;
-			d.username = client.user.tag;
-			d.id = client.user.id;
-			await this.puppet.setUserId(puppetId, client.user.id);
+			d.username = client.user!.tag;
+			d.id = client.user!.id;
+			await this.puppet.setUserId(puppetId, client.user!.id);
 			await this.puppet.setPuppetData(puppetId, d);
 			await this.puppet.sendStatusMessage(puppetId, "connected");
 			await this.updateUserInfo(puppetId);
 			// set initial presence for everyone
 			for (const [, user] of client.users) {
-				await this.updatePresence(puppetId, user);
+				await this.updatePresence(puppetId, user.presence);
 			}
 		});
 		client.on("message", async (msg: Discord.Message) => {
@@ -644,7 +645,7 @@ export class DiscordClass {
 			}
 		});
 		client.on("messageDeleteBulk", async (msgs: Discord.Collection<Discord.Snowflake, Discord.Message>) => {
-			for (const [, msg] of Array.from(msgs)) {
+			for (const [, msg] of msgs) {
 				try {
 					await this.handleDiscordMessageDelete(puppetId, msg);
 				} catch (err) {
@@ -668,9 +669,9 @@ export class DiscordClass {
 				log.error("Error handling discord typingStop event", err.error || err.body || err);
 			}
 		});
-		client.on("presenceUpdate", async (_, member: Discord.GuildMember | Discord.User) => {
+		client.on("presenceUpdate", async (_, presence: Discord.Presence) => {
 			try {
-				await this.updatePresence(puppetId, member);
+				await this.updatePresence(puppetId, presence);
 			} catch (err) {
 				log.error("Error handling discord presenceUpdate event", err.error || err.body || err);
 			}
@@ -683,8 +684,8 @@ export class DiscordClass {
 					return;
 				}
 				const params = this.getSendParams(puppetId, chan, user);
-				if (reaction.emoji instanceof Discord.Emoji) {
-					const emoji = reaction.emoji as Discord.Emoji;
+				if (reaction.emoji instanceof Discord.GuildEmoji) {
+					const emoji = reaction.emoji;
 					const mxc = await this.getEmojiMxc(emoji.name, emoji.animated, emoji.id);
 					await this.puppet.sendReaction(params, reaction.message.id, mxc || reaction.emoji.name);
 				} else {
@@ -702,8 +703,8 @@ export class DiscordClass {
 					return;
 				}
 				const params = this.getSendParams(puppetId, chan, user);
-				if (reaction.emoji instanceof Discord.Emoji) {
-					const emoji = reaction.emoji as Discord.Emoji;
+				if (reaction.emoji instanceof Discord.GuildEmoji) {
+					const emoji = reaction.emoji;
 					const mxc = await this.getEmojiMxc(emoji.name, emoji.animated, emoji.id);
 					await this.puppet.removeReaction(params, reaction.message.id, mxc || reaction.emoji.name);
 				} else {
@@ -721,14 +722,14 @@ export class DiscordClass {
 				}
 				// alright, let's fetch *an* admin user
 				let user: Discord.User;
-				if (chan.type === "text") {
-					user = (chan as Discord.TextChannel).guild.owner.user;
-				} else if (chan.type === "dm") {
-					user = (chan as Discord.DMChannel).recipient;
-				} else if (chan.type === "group") {
-					user = (chan as Discord.GroupDMChannel).owner;
+				if (chan instanceof Discord.TextChannel) {
+					user = chan.guild.owner ? chan.guild.owner.user : client.user!;
+				} else if (chan instanceof Discord.DMChannel) {
+					user = chan.recipient;
+				} else if (chan instanceof Discord.GroupDMChannel) {
+					user = chan.owner;
 				} else {
-					return;
+					user = client.user!;
 				}
 				const params = this.getSendParams(puppetId, chan, user);
 				await this.puppet.removeAllReactions(params, message.id);
@@ -763,7 +764,7 @@ export class DiscordClass {
 			}
 		});
 		client.on("relationshipAdd", async (relationship: Discord.Relationship) => {
-			if (relationship.type === "incomingFriend") {
+			if (relationship.type === "incoming") {
 				const msg = `New incoming friends request from ${relationship.user.username}!
 
 Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
@@ -774,7 +775,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			client,
 			data,
 		};
-		await client.login(data.token);
+		await client.login(data.token, false);
 	}
 
 	public async deletePuppet(puppetId: number) {
@@ -850,13 +851,13 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		if (!p) {
 			return [];
 		}
-		const blacklistedIds = [p.client.user.id, "1"];
-		for (const [, guild] of Array.from(p.client.guilds)) {
+		const blacklistedIds = [p.client.user!.id, "1"];
+		for (const [, guild] of p.client.guilds) {
 			retGuilds.push({
 				category: true,
 				name: guild.name,
 			});
-			for (const [, member] of Array.from(guild.members)) {
+			for (const [, member] of guild.members) {
 				if (!blacklistedIds.includes(member.user.id)) {
 					retGuilds.push({
 						name: member.user.username,
@@ -866,7 +867,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			}
 		}
 
-		for (const [, user] of Array.from(p.client.users)) {
+		for (const [, user] of p.client.users) {
 			const found = retGuilds.find((element) => element.id === user.id);
 			if (!found && !blacklistedIds.includes(user.id)) {
 				retUsers.push({
@@ -886,7 +887,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		if (!p) {
 			return [];
 		}
-		for (const [, guild] of Array.from(p.client.guilds)) {
+		for (const [, guild] of p.client.guilds) {
 			let didGuild = false;
 			let didCat = false;
 			await this.iterateGuildStructure(puppetId, guild,
@@ -912,12 +913,12 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 				},
 			);
 		}
-		for (const [, chan] of Array.from(p.client.channels)) {
-			if (chan.type === "group") {
+		for (const [, chan] of p.client.channels) {
+			if (chan instanceof Discord.GroupDMChannel) {
 				const found = retGuilds.find((element) => element.id === chan.id);
 				if (!found) {
 					retGroups.push({
-						name: (chan as Discord.GroupDMChannel).name,
+						name: chan.name || "",
 						id: chan.id,
 					});
 				}
@@ -978,7 +979,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			if (chan.type !== "text") {
 				continue;
 			}
-			const permissions = chan.memberPermissions(p.client.user);
+			const permissions = chan.permissionsFor(p.client.user!);
 			if (!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number)) {
 				const remoteChan = this.getRemoteRoom(puppetId, chan);
 				await this.puppet.bridgeRoom(remoteChan);
@@ -995,7 +996,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		}
 		const guilds = await this.store.getBridgedGuilds(puppetId);
 		let sendStr = "Guilds:\n";
-		for (const [, guild] of Array.from(p.client.guilds)) {
+		for (const [, guild] of p.client.guilds) {
 			let sendStrPart = ` - ${guild.name} (\`${guild.id}\`)`;
 			if (guilds.includes(guild.id)) {
 				sendStrPart += " **bridged!**";
@@ -1023,7 +1024,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		}
 		const inviteCode = matches[1];
 		try {
-			const guild = await p.client.user.acceptInvite(inviteCode);
+			const guild = await p.client.acceptInvite(inviteCode);
 			if (!guild) {
 				await sendMessage("Something went wrong");
 			} else {
@@ -1148,7 +1149,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			return;
 		}
 		let sendStr = "Friends:\n";
-		for (const [, user] of p.client.user.friends) {
+		for (const [, user] of p.client.user!.relationships.friends) {
 			const mxid = await this.puppet.getMxidForUser({
 				puppetId,
 				userId: user.id,
@@ -1161,7 +1162,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			sendStr += sendStrPart;
 		}
 		sendStr += "\nIncoming friend requests:\n";
-		for (const [, user] of p.client.user.incomingFriendRequests) {
+		for (const [, user] of p.client.user!.relationships.incoming) {
 			const sendStrPart = ` - ${user.username} (\`${user.id}\`)\n`;
 			if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
 				await sendMessage(sendStr);
@@ -1170,7 +1171,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			sendStr += sendStrPart;
 		}
 		sendStr += "\nOutgoing friend requests:\n";
-		for (const [, user] of p.client.user.outgoingFriendRequests) {
+		for (const [, user] of p.client.user!.relationships.outgoing) {
 			const sendStrPart = ` - ${user.username} (\`${user.id}\`)\n`;
 			if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
 				await sendMessage(sendStr);
@@ -1193,7 +1194,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			return;
 		}
 		try {
-			const user = await p.client.user.addFriend(param);
+			const user = await p.client.user!.relationships.request("friend", param);
 			if (user) {
 				await sendMessage(`Added/sent friend request to ${typeof user === "string" ? user : user.username}!`);
 			} else {
@@ -1217,7 +1218,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			return;
 		}
 		try {
-			const user = await p.client.user.removeFriend(param);
+			const user = await p.client.user!.relationships.remove(param);
 			if (user) {
 				await sendMessage(`Removed ${user.username} as friend!`);
 			} else {
@@ -1229,18 +1230,14 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		}
 	}
 
-	private async updatePresence(puppetId: number, userOrMember: Discord.GuildMember | Discord.User) {
+	private async updatePresence(puppetId: number, presence: Discord.Presence) {
 		const p = this.puppets[puppetId];
 		if (!p) {
 			return;
 		}
-		let user: Discord.User;
-		if (userOrMember instanceof Discord.GuildMember) {
-			user = userOrMember.user;
-		} else {
-			user = userOrMember;
+		if (!presence || !presence.user) {
+			return;
 		}
-		const presence = user.presence;
 		const matrixPresence = {
 			online: "online",
 			idle: "unavailable",
@@ -1248,27 +1245,28 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			offline: "offline",
 		}[presence.status] as "online" | "offline" | "unavailable";
 		let statusMsg = "";
-		if (presence.game) {
-			const game = presence.game;
-			if (game.type <= 3) {
-				statusMsg = [
-					"Playing ",
-					"Streaming ",
-					"Listening ",
-					"Watching ",
-				][game.type] + game.name;
-			} else {
-				const statusParts: string[] = [];
-				if (game.emoji) {
-					statusParts.push(game.emoji.name);
-				}
-				if (game.state) {
-					statusParts.push(game.state);
-				}
-				statusMsg = statusParts.join(" ");
+		for (const activity of presence.activities) {
+			if (statusMsg !== "") {
+				return;
 			}
+			const statusParts: string[] = [];
+			if (activity.type !== "CUSTOM_STATUS") {
+				const lower = activity.type.toLowerCase();
+				statusParts.push(lower.charAt(0).toUpperCase() + lower.substring(1));
+				if (activity.name) {
+					statusParts.push(activity.name);
+				}
+			} else {
+				if (activity.emoji) {
+					statusParts.push(activity.emoji.name);
+				}
+				if (activity.state) {
+					statusParts.push(activity.state);
+				}
+			}
+			statusMsg = statusParts.join(" ");
 		}
-		const remoteUser = this.getRemoteUser(puppetId, user);
+		const remoteUser = this.getRemoteUser(puppetId, presence.user!);
 		await this.puppet.setUserPresence(remoteUser, matrixPresence);
 		if (statusMsg) {
 			await this.puppet.setUserStatus(remoteUser, statusMsg);
@@ -1352,20 +1350,20 @@ Additionally you will be invited to guild channels as messages are sent in them.
 	}
 
 	private async getUserById(client: Discord.Client, id: string): Promise<Discord.User | null> {
-		for (const [, guild] of Array.from(client.guilds)) {
+		for (const [, guild] of client.guilds) {
 			const a = guild.members.find((m) => m.user.id === id);
 			if (a) {
 				return a.user as Discord.User;
 			}
 		}
 		{
-			const user = client.user.friends.get(id);
+			const user = client.user!.relationships.friends.get(id);
 			if (user) {
 				return user;
 			}
 		}
 		{
-			const user = await client.fetchUser(id);
+			const user = await client.users.fetch(id);
 			if (user) {
 				return user;
 			}
@@ -1388,7 +1386,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 				}
 			}
 			// next iterate over all the guild channels
-			for (const [, guild] of Array.from(client.guilds)) {
+			for (const [, guild] of client.guilds) {
 				const c = guild.channels.get(id);
 				if (c && c.type === "text") {
 					return c as Discord.TextChannel;
@@ -1433,7 +1431,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 				let name = mxid;
 				const chan = await this.getDiscordChan(p.client, id);
 				if (chan && !(chan instanceof Discord.DMChannel)) {
-					name = chan.name;
+					name = chan.name || "";
 				}
 				return {
 					mxid,
@@ -1459,7 +1457,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		return "matrix-media" + ext;
 	}
 
-	private async getDiscordEmoji(client: Discord.Client, mxc: string): Promise<Discord.Emoji | null> {
+	private async getDiscordEmoji(client: Discord.Client, mxc: string): Promise<Discord.GuildEmoji | null> {
 		const dbEmoji = await this.store.getEmojiByMxc(mxc);
 		if (!dbEmoji) {
 			return null;
@@ -1499,30 +1497,30 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		const bridgedChannels = await this.store.getBridgedChannels(puppetId);
 		const client = guild.client;
 		// first we iterate over the non-sorted channels
-		for (const [, chan] of Array.from(guild.channels)) {
+		for (const [, chan] of guild.channels) {
 			if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id)) {
 				continue;
 			}
-			const permissions = chan.memberPermissions(client.user);
+			const permissions = chan.permissionsFor(client.user!);
 			if (!chan.parentID && chan.type === "text" &&
 				(!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
 				await chanCallback(chan as Discord.TextChannel);
 			}
 		}
 		// next we iterate over the categories and all their children
-		for (const [, catt] of Array.from(guild.channels)) {
+		for (const [, catt] of guild.channels) {
 			if (catt.type !== "category") {
 				continue;
 			}
 			const cat = catt as Discord.CategoryChannel;
-			const catPermissions = cat.memberPermissions(client.user);
+			const catPermissions = cat.permissionsFor(client.user!);
 			if (!catPermissions || catPermissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number)) {
 				let doCat = false;
-				for (const [, chan] of Array.from(cat.children)) {
+				for (const [, chan] of cat.children) {
 					if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id)) {
 						continue;
 					}
-					const permissions = chan.memberPermissions(client.user);
+					const permissions = chan.permissionsFor(client.user!);
 					if (chan.type === "text" && (!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
 						if (!doCat) {
 							doCat = true;
