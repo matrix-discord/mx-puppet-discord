@@ -76,7 +76,7 @@ Portal](https://discordapp.com/login?redirect_to=%2Fdevelopers%2Fapplications%2F
 
 ![](img/bot-6.jpg)
 
-Finally, send the appservice bot a message with the contents `link
+Finally, send the appservice bot a message with the contents `link bot
 your.token-here`.
 
 ### Linking your Discord account
@@ -85,7 +85,7 @@ your.token-here`.
 
 First [retrieve your Discord User Token](https://discordhelp.net/discord-token).
 
-Then send the bot a message with the contents `link your.token-here`.
+Then send the bot a message with the contents `link user your.token-here`.
 
 ### Guild management
 

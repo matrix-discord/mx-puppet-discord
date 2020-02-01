@@ -614,6 +614,7 @@ export class DiscordClass {
 			const d = this.puppets[puppetId].data;
 			d.username = client.user!.tag;
 			d.id = client.user!.id;
+			d.bot = client.user!.bot;
 			await this.puppet.setUserId(puppetId, client.user!.id);
 			await this.puppet.setPuppetData(puppetId, d);
 			await this.puppet.sendStatusMessage(puppetId, "connected");
@@ -775,12 +776,12 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			client,
 			data,
 		};
-		await client.login(data.token, false);
+		await client.login(data.token, data.bot || false);
 	}
 
 	public async deletePuppet(puppetId: number) {
 		log.info(`Got signal to quit Puppet: puppetId=${puppetId}`);
-		const p = this.puppet[puppetId];
+		const p = this.puppets[puppetId];
 		if (!p) {
 			return; // nothing to do
 		}

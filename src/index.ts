@@ -127,9 +127,21 @@ async function run() {
 			retData.error = "Please specify a token to link!";
 			return retData;
 		}
+		const parts = str.split(" ");
+		const PARTS_LENGTH = 2;
+		if (parts.length !== PARTS_LENGTH) {
+			retData.error = "Please specify if your token is a user or a bot token! `link <user|bot> token`";
+			return retData;
+		}
+		const type = parts[0].toLowerCase();
+		if (!["bot", "user"].includes(type)) {
+			retData.error = "Please specify if your token is a user or a bot token! `link <user|bot> token`";
+			return retData;
+		}
 		retData.success = true;
 		retData.data = {
-			token: str.trim(),
+			token: parts[1].trim(),
+			bot: type === "bot",
 		};
 		return retData;
 	});
