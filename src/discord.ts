@@ -45,6 +45,8 @@ const log = new Log("DiscordPuppet:Discord");
 const MAXFILESIZE = 8000000;
 const MAX_MSG_SIZE = 4000;
 
+const AVATAR_SETTINGS: Discord.ImageURLOptions & { dynamic?: boolean | undefined; } = { format: "png", size: 2048, dynamic: true };
+
 interface IDiscordPuppet {
 	client: Discord.Client;
 	data: any;
@@ -108,7 +110,7 @@ export class DiscordClass {
 		const response = {
 			userId: isWebhook ? `webhook-${user.id}-${user.username}` : user.id,
 			puppetId,
-			avatarUrl: user.avatarURL({ format: "png", dynamic: true }),
+			avatarUrl: user.avatarURL(AVATAR_SETTINGS),
 			nameVars,
 		} as IRemoteUser;
 		if (member) {
@@ -141,7 +143,7 @@ export class DiscordClass {
 			ret.nameVars = {
 				name: groupChannel.name,
 			};
-			ret.avatarUrl = groupChannel.iconURL({ format: "png", dynamic: true });
+			ret.avatarUrl = groupChannel.iconURL(AVATAR_SETTINGS);
 		}
 		if (channel.type === "text") {
 			const textChannel = channel as Discord.TextChannel;
@@ -149,7 +151,7 @@ export class DiscordClass {
 				name: textChannel.name,
 				guild: textChannel.guild.name,
 			};
-			ret.avatarUrl = textChannel.guild.iconURL({ format: "png", dynamic: true });
+			ret.avatarUrl = textChannel.guild.iconURL(AVATAR_SETTINGS);
 			ret.groupId = textChannel.guild.id;
 			ret.topic = textChannel.topic;
 		}
@@ -196,7 +198,7 @@ export class DiscordClass {
 			nameVars: {
 				name: guild.name,
 			},
-			avatarUrl: guild.iconURL({ format: "png", dynamic: true }),
+			avatarUrl: guild.iconURL(AVATAR_SETTINGS),
 			roomIds,
 			longDescription: description,
 		} as IRemoteGroup;
@@ -386,7 +388,7 @@ export class DiscordClass {
 		const replyEmbed = new Discord.MessageEmbed()
 			.setTimestamp(new Date(msg.createdAt))
 			.setDescription(msg.content)
-			.setAuthor(msg.author.username, msg.author.avatarURL({ format: "png", dynamic: true }) || undefined);
+			.setAuthor(msg.author.username, msg.author.avatarURL(AVATAR_SETTINGS) || undefined);
 		if (msg.embeds && msg.embeds[0]) {
 			const msgEmbed = msg.embeds[0];
 			// if an author is set it wasn't an image embed thingy we send
@@ -596,7 +598,8 @@ export class DiscordClass {
 			return;
 		}
 		try {
-			const realUrl = this.puppet.getUrlFromMxc(mxc, 800, 800);
+			const AVATAR_SIZE = 800;
+			const realUrl = this.puppet.getUrlFromMxc(mxc, AVATAR_SIZE, AVATAR_SIZE);
 			const buffer = await Util.DownloadFile(realUrl);
 			await p.client.user!.setAvatar(buffer);
 		} catch (err) {
@@ -785,7 +788,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		if (!p) {
 			return; // nothing to do
 		}
-		await p.client.destroy();
+		p.client.destroy();
 		delete this.puppet[puppetId];
 	}
 
