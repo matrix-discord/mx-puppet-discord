@@ -76,19 +76,18 @@ export class DiscordClass {
 	}
 
 	public getRemoteUserRoomOverride(member: Discord.GuildMember, chan: Discord.Channel): IRemoteUserRoomOverride {
-		const nameVars = {
+		const nameVars: IStringFormatterVars = {
 			name: member.user.username,
 			discriminator: member.user.discriminator,
 			displayname: member.displayName,
-		} as IStringFormatterVars;
-		if (chan.type === "text") {
-			const textChan = chan as Discord.TextChannel;
-			nameVars.channel = textChan.name;
-			nameVars.guild = textChan.guild.name;
+		};
+		if (chan instanceof Discord.TextChannel) {
+			nameVars.channel = chan.name;
+			nameVars.guild = chan.guild.name;
 		}
 		return {
 			nameVars,
-		} as IRemoteUserRoomOverride;
+		};
 	}
 
 	public getRemoteUser(
@@ -97,22 +96,24 @@ export class DiscordClass {
 		isWebhook: boolean = false,
 		chan?: Discord.TextChannel,
 	): IRemoteUser {
-		let user = userOrMember as Discord.User;
+		let user: Discord.User;
 		let member: Discord.GuildMember | null = null;
-		if ((userOrMember as Discord.GuildMember).guild) {
-			member = userOrMember as Discord.GuildMember;
+		if (userOrMember instanceof Discord.GuildMember) {
+			member = userOrMember;
 			user = member.user;
+		} else {
+			user = userOrMember;
 		}
-		const nameVars = {
+		const nameVars: IStringFormatterVars = {
 			name: user.username,
 			discriminator: user.discriminator,
-		} as IStringFormatterVars;
-		const response = {
+		};
+		const response: IRemoteUser = {
 			userId: isWebhook ? `webhook-${user.id}-${user.username}` : user.id,
 			puppetId,
 			avatarUrl: user.avatarURL(AVATAR_SETTINGS),
 			nameVars,
-		} as IRemoteUser;
+		};
 		if (member) {
 			response.roomOverrides = {};
 			if (chan) {
@@ -130,32 +131,29 @@ export class DiscordClass {
 
 	public getRemoteRoom(puppetId: number, channel: Discord.Channel): IRemoteRoom {
 		let roomId = channel.id;
-		if (channel.type === "dm") {
-			roomId = `dm-${(channel as Discord.DMChannel).recipient.id}`;
+		if (channel instanceof Discord.DMChannel) {
+			roomId = `dm-${channel.recipient.id}`;
 		}
-		const ret = {
+		const ret: IRemoteRoom = {
 			roomId,
 			puppetId,
 			isDirect: channel.type === "dm",
-		} as IRemoteRoom;
-		if (channel.type === "group") {
-			const groupChannel = channel as Discord.GroupDMChannel;
+		};
+		if (channel instanceof Discord.GroupDMChannel) {
 			ret.nameVars = {
-				name: groupChannel.name,
+				name: channel.name,
 			};
-			ret.avatarUrl = groupChannel.iconURL(AVATAR_SETTINGS);
+			ret.avatarUrl = channel.iconURL(AVATAR_SETTINGS);
 		}
-		if (channel.type === "text") {
-			const textChannel = channel as Discord.TextChannel;
+		if (channel instanceof Discord.TextChannel) {
 			ret.nameVars = {
-				name: textChannel.name,
-				guild: textChannel.guild.name,
+				name: channel.name,
+				guild: channel.guild.name,
 			};
-			ret.avatarUrl = textChannel.guild.iconURL(AVATAR_SETTINGS);
-			ret.groupId = textChannel.guild.id;
-			ret.topic = textChannel.topic;
+			ret.avatarUrl = channel.guild.iconURL(AVATAR_SETTINGS);
+			ret.groupId = channel.guild.id;
+			ret.topic = channel.topic;
 		}
-		log.silly(ret);
 		return ret;
 	}
 
@@ -171,7 +169,7 @@ export class DiscordClass {
 		return this.getRemoteRoom(puppetId, chan);
 	}
 
-	public async getRemoteGroup(puppetId: number, guild: Discord.Guild) {
+	public async getRemoteGroup(puppetId: number, guild: Discord.Guild): Promise<IRemoteGroup> {
 		const roomIds: string[] = [];
 		let description = `<h1>${escapeHtml(guild.name)}</h1>`;
 		description += `<h2>Channels:</h2><ul>`;
@@ -201,7 +199,7 @@ export class DiscordClass {
 			avatarUrl: guild.iconURL(AVATAR_SETTINGS),
 			roomIds,
 			longDescription: description,
-		} as IRemoteGroup;
+		};
 	}
 
 	public getSendParams(
@@ -220,9 +218,8 @@ export class DiscordClass {
 			user = msg.member || msg.author;
 			eventId = msg.id;
 			isWebhook = msg.webhookID ? true : false;
-			if (channel.type === "text") {
-				textChannel = channel as Discord.TextChannel;
-				externalUrl = `https://discordapp.com/channels/${textChannel.guild.id}/${textChannel.id}/${eventId}`;
+			if (channel instanceof Discord.TextChannel) {
+				externalUrl = `https://discordapp.com/channels/${channel.guild.id}/${channel.id}/${eventId}`;
 			} else if (["group", "dm"].includes(channel.type)) {
 				externalUrl = `https://discordapp.com/channels/@me/${channel.id}/${eventId}`;
 			}
@@ -234,7 +231,7 @@ export class DiscordClass {
 			user: this.getRemoteUser(puppetId, user, isWebhook, textChannel),
 			eventId,
 			externalUrl,
-		} as IReceiveParams;
+		};
 	}
 
 	public async insertNewEventId(puppetId: number, matrixId: string, msgs: Discord.Message | Discord.Message[]) {
@@ -507,9 +504,9 @@ export class DiscordClass {
 		}
 		params.externalUrl = externalUrl;
 		if (msg.content) {
-			const opts = {
+			const opts: IDiscordMessageParserOpts = {
 				callbacks: this.getDiscordMsgParserCallbacks(puppetId),
-			} as IDiscordMessageParserOpts;
+			};
 			const reply = await this.discordMsgParser.FormatMessage(opts, msg as any); // library uses discord.js
 			await this.puppet.sendMessage(params, {
 				body: reply.body,
@@ -538,9 +535,9 @@ export class DiscordClass {
 			log.info("Unhandled channel, dropping message...");
 			return;
 		}
-		const opts = {
+		const opts: IDiscordMessageParserOpts = {
 			callbacks: this.getDiscordMsgParserCallbacks(puppetId),
-		} as IDiscordMessageParserOpts;
+		};
 		const reply = await this.discordMsgParser.FormatMessage(opts, msg2 as any); // library uses discord.js
 		if (msg1.content) {
 			// okay we have an actual edit
@@ -1291,10 +1288,9 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		if (["dm", "group"].includes(chan.type)) {
 			return true; // we handle all dm and group channels
 		}
-		if (chan.type === "text") {
+		if (chan instanceof Discord.TextChannel) {
 			// we have a guild text channel, maybe we handle it!
-			const textChan = chan as Discord.TextChannel;
-			if (await this.store.isGuildBridged(puppetId, textChan.guild.id)) {
+			if (await this.store.isGuildBridged(puppetId, chan.guild.id)) {
 				return true;
 			}
 			// maybe it is a single channel override?
@@ -1313,30 +1309,28 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			return;
 		}
 		let msg = "";
-		if (chan.type === "dm") {
-			msg = `Failed to send message to DM with user ${(chan as Discord.DMChannel).recipient.username}`;
-		} else if (chan.type === "group") {
-			const groupChan = chan as Discord.GroupDMChannel;
-			let name = groupChan.name;
+		if (chan instanceof Discord.DMChannel) {
+			msg = `Failed to send message to DM with user ${chan.recipient.username}`;
+		} else if (chan instanceof Discord.GroupDMChannel) {
+			let name = chan.name;
 			if (!name) {
 				const names: string[] = [];
-				for (const [, user] of groupChan.recipients) {
+				for (const [, user] of chan.recipients) {
 					names.push(user.username);
 				}
 				name = names.join(", ");
 			}
 			msg = `Failed to send message into Group DM ${name}`;
-		} else if (chan.type === "text") {
-			const textChan = chan as Discord.TextChannel;
-			msg = `Failed to send message into channel ${textChan.name} of guild ${textChan.guild.name}`;
+		} else if (chan instanceof Discord.TextChannel) {
+			msg = `Failed to send message into channel ${chan.name} of guild ${chan.guild.name}`;
 		} else {
-			msg = `Failed to send message into channel with id \`${chan.id}\``;
+			msg = `Failed to send message into channel with id \`${(chan as Discord.Channel).id}\``;
 		}
 		await this.puppet.sendStatusMessage(room, msg);
 	}
 
 	private async parseMatrixMessage(puppetId: number, eventContent: any): Promise<string> {
-		const opts = {
+		const opts: IMatrixMessageParserOpts = {
 			displayname: "", // something too short
 			callbacks: {
 				canNotifyRoom: async () => true,
@@ -1358,7 +1352,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 				mxcUrlToHttp: (mxc: string) => this.puppet.getUrlFromMxc(mxc),
 			},
 			determineCodeLanguage: true,
-		} as IMatrixMessageParserOpts;
+		};
 		const msg = await this.matrixMsgParser.FormatMessage(opts, eventContent);
 		return msg;
 	}
@@ -1367,7 +1361,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		for (const [, guild] of client.guilds) {
 			const a = guild.members.find((m) => m.user.id === id);
 			if (a) {
-				return a.user as Discord.User;
+				return a.user;
 			}
 		}
 		{
@@ -1392,18 +1386,15 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			// first fetch from the client channel cache
 			const chan = client.channels.get(id);
 			if (chan) {
-				if (chan.type === "group") {
-					return chan as Discord.GroupDMChannel;
-				}
-				if (chan.type === "text") {
-					return chan as Discord.TextChannel;
+				if (chan instanceof Discord.GroupDMChannel || chan instanceof Discord.TextChannel) {
+					return chan;
 				}
 			}
 			// next iterate over all the guild channels
 			for (const [, guild] of client.guilds) {
 				const c = guild.channels.get(id);
-				if (c && c.type === "text") {
-					return c as Discord.TextChannel;
+				if (c && c instanceof Discord.TextChannel) {
+					return c;
 				}
 			}
 			return null; // nothing found
@@ -1419,7 +1410,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		}
 	}
 
-	private getDiscordMsgParserCallbacks(puppetId: number) {
+	private getDiscordMsgParserCallbacks(puppetId: number): IDiscordMessageParserCallbacks {
 		const p = this.puppets[puppetId];
 		return {
 			getUser: async (id: string) => {
@@ -1453,7 +1444,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 				};
 			},
 			getEmoji: this.getEmojiMxc.bind(this),
-		} as IDiscordMessageParserCallbacks;
+		};
 	}
 
 	private getFilenameForMedia(filename: string, mimetype: string): string {
@@ -1515,17 +1506,16 @@ Additionally you will be invited to guild channels as messages are sent in them.
 				continue;
 			}
 			const permissions = chan.permissionsFor(client.user!);
-			if (!chan.parentID && chan.type === "text" &&
+			if (!chan.parentID && chan instanceof Discord.TextChannel &&
 				(!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
-				await chanCallback(chan as Discord.TextChannel);
+				await chanCallback(chan);
 			}
 		}
 		// next we iterate over the categories and all their children
-		for (const [, catt] of guild.channels) {
-			if (catt.type !== "category") {
+		for (const [, cat] of guild.channels) {
+			if (!(cat instanceof Discord.CategoryChannel)) {
 				continue;
 			}
-			const cat = catt as Discord.CategoryChannel;
 			const catPermissions = cat.permissionsFor(client.user!);
 			if (!catPermissions || catPermissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number)) {
 				let doCat = false;
@@ -1534,12 +1524,12 @@ Additionally you will be invited to guild channels as messages are sent in them.
 						continue;
 					}
 					const permissions = chan.permissionsFor(client.user!);
-					if (chan.type === "text" && (!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
+					if (chan instanceof Discord.TextChannel && (!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
 						if (!doCat) {
 							doCat = true;
 							await catCallback(cat);
 						}
-						await chanCallback(chan as Discord.TextChannel);
+						await chanCallback(chan);
 					}
 				}
 			}
