@@ -596,8 +596,8 @@ export class DiscordClass {
 			return;
 		}
 		try {
-			url = url.replace("download", "thumbnail") + "?width=800&height=800";
-			const buffer = await Util.DownloadFile(url);
+			const realUrl = this.puppet.getUrlFromMxc(mxc, 800, 800);
+			const buffer = await Util.DownloadFile(realUrl);
 			await p.client.user!.setAvatar(buffer);
 		} catch (err) {
 			log.warn(`Couldn't set avatar for ${puppetId}`, err);
@@ -1484,7 +1484,8 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		}
 		const url = `https://cdn.discordapp.com/emojis/${id}${animated ? ".gif" : ".png"}`;
 		const buffer = await Util.DownloadFile(url);
-		const mxcUrl = await this.puppet.botIntent.underlyingClient.uploadContent(
+		const mxcUrl = await this.puppet.uploadContent(
+			null,
 			buffer,
 			Util.GetMimeType(buffer),
 		);
