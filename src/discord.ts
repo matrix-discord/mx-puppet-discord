@@ -1483,11 +1483,9 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			return emoji.mxcUrl;
 		}
 		const url = `https://cdn.discordapp.com/emojis/${id}${animated ? ".gif" : ".png"}`;
-		const buffer = await Util.DownloadFile(url);
 		const mxcUrl = await this.puppet.uploadContent(
 			null,
-			buffer,
-			Util.GetMimeType(buffer),
+			url,
 		);
 		emoji = {
 			emojiId: id,
