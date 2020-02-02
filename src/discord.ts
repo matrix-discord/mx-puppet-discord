@@ -1149,36 +1149,46 @@ Additionally you will be invited to guild channels as messages are sent in them.
 				`\`enablefriendsmanagement ${puppetId}\` to enable it`);
 			return;
 		}
-		let sendStr = "Friends:\n";
-		for (const [, user] of p.client.user!.relationships.friends) {
-			const mxid = await this.puppet.getMxidForUser({
-				puppetId,
-				userId: user.id,
-			});
-			const sendStrPart = ` - ${user.username} (\`${user.id}\`): [${user.username}](https://matrix.to/#/${mxid})\n`;
-			if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
-				await sendMessage(sendStr);
-				sendStr = "";
+		let sendStr = "";
+		const friends = p.client.user!.relationships.friends;
+		if (friends.size > 0) {
+			sendStr += "Friends:\n";
+			for (const [, user] of p.client.user!.relationships.friends) {
+				const mxid = await this.puppet.getMxidForUser({
+					puppetId,
+					userId: user.id,
+				});
+				const sendStrPart = ` - ${user.username} (\`${user.id}\`): [${user.username}](https://matrix.to/#/${mxid})\n`;
+				if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
+					await sendMessage(sendStr);
+					sendStr = "";
+				}
+				sendStr += sendStrPart;
 			}
-			sendStr += sendStrPart;
 		}
-		sendStr += "\nIncoming friend requests:\n";
-		for (const [, user] of p.client.user!.relationships.incoming) {
-			const sendStrPart = ` - ${user.username} (\`${user.id}\`)\n`;
-			if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
-				await sendMessage(sendStr);
-				sendStr = "";
+		const incoming = p.client.user!.relationships.incoming;
+		if (incoming.size > 0) {
+			sendStr += "\nIncoming friend requests:\n";
+			for (const [, user] of incoming) {
+				const sendStrPart = ` - ${user.username} (\`${user.id}\`)\n`;
+				if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
+					await sendMessage(sendStr);
+					sendStr = "";
+				}
+				sendStr += sendStrPart;
 			}
-			sendStr += sendStrPart;
 		}
-		sendStr += "\nOutgoing friend requests:\n";
-		for (const [, user] of p.client.user!.relationships.outgoing) {
-			const sendStrPart = ` - ${user.username} (\`${user.id}\`)\n`;
-			if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
-				await sendMessage(sendStr);
-				sendStr = "";
+		const outgoing = p.client.user!.relationships.outgoing;
+		if (outgoing.size > 0) {
+			sendStr += "\nOutgoing friend requests:\n";
+			for (const [, user] of outgoing) {
+				const sendStrPart = ` - ${user.username} (\`${user.id}\`)\n`;
+				if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
+					await sendMessage(sendStr);
+					sendStr = "";
+				}
+				sendStr += sendStrPart;
 			}
-			sendStr += sendStrPart;
 		}
 		await sendMessage(sendStr);
 	}
