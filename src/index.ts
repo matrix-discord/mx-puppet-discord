@@ -150,51 +150,75 @@ async function run() {
 	});
 	puppet.registerCommand("syncprofile", {
 		fn: discord.commandSyncProfile.bind(discord),
-		help: "Enable/disable the syncing of the profile",
+		help: `Enable/disable the syncing of the matrix profile to the discord one (name and avatar)
+
+Usage: \`syncprofile <puppetId> <1/0>\``,
 	});
 	puppet.registerCommand("joinentireguild", {
 		fn: discord.commandJoinEntireGuild.bind(discord),
-		help: "Join all the channels in a guild, if it is bridged",
+		help: `Join all the channels in a guild, if it is bridged
+
+Usage: \`joinentireguild <puppetId> <guildId>\``,
 	});
 	puppet.registerCommand("listguilds", {
 		fn: discord.commandListGuilds.bind(discord),
-		help: "List all guilds that are currently bridged",
+		help: `List all guilds that can be bridged
+
+Usage: \`listguilds <puppetId>\``,
 	});
 	puppet.registerCommand("acceptinvite", {
 		fn: discord.commandAcceptInvite.bind(discord),
-		help: "Accept a discord.gg invite",
+		help: `Accept a discord.gg invite
+
+Usage: \`acceptinvite <puppetId> <inviteLink>\``,
 	});
 	puppet.registerCommand("bridgeguild", {
 		fn: discord.commandBridgeGuild.bind(discord),
-		help: "Bridge a guild",
+		help: `Bridge a guild
+
+Usage: \`bridgeguild <puppetId> <guildId>\``,
 	});
 	puppet.registerCommand("unbridgeguild", {
 		fn: discord.commandUnbridgeGuild.bind(discord),
-		help: "Unbridge a guild",
+		help: `Unbridge a guild
+
+Usage: \`unbridgeguild <puppetId> <guildId>\``,
 	});
 	puppet.registerCommand("bridgechannel", {
 		fn: discord.commandBridgeChannel.bind(discord),
-		help: "Bridge a channel",
+		help: `Bridge a channel
+
+Usage: \`bridgechannel <puppetId> <channelId>\``,
 	});
 	puppet.registerCommand("unbridgechannel", {
 		fn: discord.commandUnbridgeChannel.bind(discord),
-		help: "Unbridge a channel",
+		help: `Unbridge a channel
+
+Usage: \`unbridgechannel <puppetId> <channelId>\``,
 	});
 	puppet.registerCommand("enablefriendsmanagement", {
 		fn: discord.commandEnableFriendsManagement.bind(discord),
-		help: "Enable friends management",
+		help: `Enables friends management on the discord account
+
+Usage: \`enablefriendsmanagement <puppetId>\``,
 	});
 	puppet.registerCommand("listfriends", {
 		fn: discord.commandListFriends.bind(discord),
-		help: "List all your current friends",
+		help: `List all your current friends
+
+Usage: \`listfriends <puppetId>\``,
 	});
 	puppet.registerCommand("addfriend", {
 		fn: discord.commandAddFriend.bind(discord),
-		help: "Add a new friend",
+		help: `Add a new friend
+
+Usage: \`addfriend <puppetId> <friend>\`, friend can be either the full username or the user ID`,
 	});
 	puppet.registerCommand("removefriend", {
 		fn: discord.commandRemoveFriend.bind(discord),
-		help: "Remove a friend",
+		help: `Remove a friend
+
+Usage: \`removefriend <puppetId> <friend>\`, friend can be either the full username or the user ID`,
 	});
 	await puppet.start();
 }
