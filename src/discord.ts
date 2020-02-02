@@ -764,7 +764,7 @@ export class DiscordClass {
 				log.error("Error handling discord guildUpdate event", err.error || err.body || err);
 			}
 		});
-		client.on("relationshipAdd", async (relationship: Discord.Relationship) => {
+		client.on("relationshipAdd", async (_, relationship: Discord.Relationship) => {
 			if (relationship.type === "incoming") {
 				const msg = `New incoming friends request from ${relationship.user.username}!
 
