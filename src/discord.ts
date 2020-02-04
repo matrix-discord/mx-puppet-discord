@@ -45,7 +45,8 @@ const log = new Log("DiscordPuppet:Discord");
 const MAXFILESIZE = 8000000;
 const MAX_MSG_SIZE = 4000;
 
-const AVATAR_SETTINGS: Discord.ImageURLOptions & { dynamic?: boolean | undefined; } = { format: "png", size: 2048, dynamic: true };
+const AVATAR_SETTINGS: Discord.ImageURLOptions & { dynamic?: boolean | undefined; }
+	= { format: "png", size: 2048, dynamic: true };
 
 interface IDiscordPuppet {
 	client: Discord.Client;
@@ -219,6 +220,7 @@ export class DiscordClass {
 			eventId = msg.id;
 			isWebhook = msg.webhookID ? true : false;
 			if (channel instanceof Discord.TextChannel) {
+				textChannel = channel;
 				externalUrl = `https://discordapp.com/channels/${channel.guild.id}/${channel.id}/${eventId}`;
 			} else if (["group", "dm"].includes(channel.type)) {
 				externalUrl = `https://discordapp.com/channels/@me/${channel.id}/${eventId}`;
@@ -301,16 +303,18 @@ export class DiscordClass {
 				}
 			}
 		}
-		this.messageDeduplicator.lock(lockKey);
 		try {
 			if (mimetype && mimetype.split("/")[0] === "image" && p.client.user!.bot) {
 				const embed = new Discord.MessageEmbed()
 					.setTitle(data.filename)
 					.setImage(data.url);
+				this.messageDeduplicator.lock(lockKey, p.client.user!.id, "");
 				const reply = await chan.send(embed);
 				await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 			} else {
-				const reply = await chan.send(`Uploaded File: [${data.filename}](${data.url})`);
+				const msg = `Uploaded File: [${data.filename}](${data.url})`;
+				this.messageDeduplicator.lock(lockKey, p.client.user!.id, msg);
+				const reply = await chan.send(msg);
 				await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 			}
 		} catch (err) {
@@ -1524,7 +1528,8 @@ Additionally you will be invited to guild channels as messages are sent in them.
 						continue;
 					}
 					const permissions = chan.permissionsFor(client.user!);
-					if (chan instanceof Discord.TextChannel && (!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
+					if (chan instanceof Discord.TextChannel &&
+						(!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
 						if (!doCat) {
 							doCat = true;
 							await catCallback(cat);
