@@ -600,7 +600,7 @@ export class DiscordClass {
 		}
 		try {
 			const AVATAR_SIZE = 800;
-			const realUrl = this.puppet.getUrlFromMxc(mxc, AVATAR_SIZE, AVATAR_SIZE);
+			const realUrl = this.puppet.getUrlFromMxc(mxc, AVATAR_SIZE, AVATAR_SIZE, "scale");
 			const buffer = await Util.DownloadFile(realUrl);
 			await p.client.user!.setAvatar(buffer);
 		} catch (err) {
