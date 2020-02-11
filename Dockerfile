@@ -13,7 +13,9 @@ RUN npm run build
 FROM node:alpine
 
 VOLUME /data
-VOLUME /config
+
+ENV CONFIG_PATH=/data/config.yaml \
+    REGISTRATION_PATH=/data/discord-registration.yaml
 
 WORKDIR /opt/mx-puppet-discord
 
