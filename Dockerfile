@@ -2,6 +2,11 @@ FROM node:latest AS builder
 
 WORKDIR /opt/mx-puppet-discord
 
+# run build process as user in case of npm pre hooks
+# pre hooks are not executed while running as root
+RUN chown node:node /opt/mx-puppet-discord
+USER node
+
 COPY package.json package-lock.json ./
 RUN npm install
 
