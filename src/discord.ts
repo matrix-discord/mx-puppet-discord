@@ -1334,7 +1334,6 @@ Additionally you will be invited to guild channels as messages are sent in them.
 	}
 
 	private async parseMatrixMessage(puppetId: number, eventContent: any): Promise<string> {
-		const p = this.puppets[puppetId];
 		const opts: IMatrixMessageParserOpts = {
 			displayname: "", // something too short
 			callbacks: {
@@ -1355,10 +1354,15 @@ Additionally you will be invited to guild channels as messages are sent in them.
 				},
 				getEmoji: async (mxc: string, name: string) => {
 					const dbEmoji = await this.store.getEmojiByMxc(mxc);
+					log.info("Found emoji", dbEmoji);
 					if (!dbEmoji) {
 						return null;
 					}
-					return p.client.emojis.get(dbEmoji.emojiId) as any || null;
+					return {
+						animated: dbEmoji.animated,
+						name: dbEmoji.name,
+						id: dbEmoji.emojiId,
+					} as any;
 				},
 				mxcUrlToHttp: (mxc: string) => this.puppet.getUrlFromMxc(mxc),
 			},
