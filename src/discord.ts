@@ -689,9 +689,8 @@ export class DiscordClass {
 					return;
 				}
 				const params = this.getSendParams(puppetId, chan, user);
-				if (reaction.emoji instanceof Discord.GuildEmoji) {
-					const emoji = reaction.emoji;
-					const mxc = await this.getEmojiMxc(emoji.name, emoji.animated, emoji.id);
+				if (reaction.emoji.id) {
+					const mxc = await this.getEmojiMxc(reaction.emoji.name, reaction.emoji.animated, reaction.emoji.id);
 					await this.puppet.sendReaction(params, reaction.message.id, mxc || reaction.emoji.name);
 				} else {
 					await this.puppet.sendReaction(params, reaction.message.id, reaction.emoji.name);
@@ -708,9 +707,8 @@ export class DiscordClass {
 					return;
 				}
 				const params = this.getSendParams(puppetId, chan, user);
-				if (reaction.emoji instanceof Discord.GuildEmoji) {
-					const emoji = reaction.emoji;
-					const mxc = await this.getEmojiMxc(emoji.name, emoji.animated, emoji.id);
+				if (reaction.emoji.id) {
+					const mxc = await this.getEmojiMxc(reaction.emoji.name, reaction.emoji.animated, reaction.emoji.id);
 					await this.puppet.removeReaction(params, reaction.message.id, mxc || reaction.emoji.name);
 				} else {
 					await this.puppet.removeReaction(params, reaction.message.id, reaction.emoji.name);
