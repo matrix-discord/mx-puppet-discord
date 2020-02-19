@@ -23,6 +23,8 @@ ENV CONFIG_PATH=/data/config.yaml \
     REGISTRATION_PATH=/data/discord-registration.yaml
 
 WORKDIR /opt/mx-puppet-discord
+# su-exec is used by docker-run.sh to drop privileges
+RUN apk add --no-cache su-exec
 
 COPY docker-run.sh ./
 COPY --from=builder /opt/mx-puppet-discord/node_modules/ ./node_modules/
