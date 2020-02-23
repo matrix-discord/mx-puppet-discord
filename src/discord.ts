@@ -499,6 +499,7 @@ export class DiscordClass {
 		const dedupeMsg = msg.attachments.first() ? `file:${msg.attachments.first()!.name}` : msg.content;
 		if (await this.messageDeduplicator.dedupe(lockKey, msg.author.id, msg.id, dedupeMsg)) {
 			// dedupe message
+			log.info("Deduping message, dropping...");
 			return;
 		}
 		const externalUrl = params.externalUrl;
@@ -507,7 +508,7 @@ export class DiscordClass {
 			await this.puppet.sendFileDetect(params, attachment.url, attachment.name);
 		}
 		params.externalUrl = externalUrl;
-		if (msg.content) {
+		if (msg.content || msg.embeds.length > 0) {
 			const opts: IDiscordMessageParserOpts = {
 				callbacks: this.getDiscordMsgParserCallbacks(puppetId),
 			};
