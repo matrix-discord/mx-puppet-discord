@@ -26,6 +26,8 @@ import {
 	MessageDeduplicator,
 	SendMessageFn,
 	IStringFormatterVars,
+	ISendingUser,
+	ExpireSet,
 } from "mx-puppet-bridge";
 import * as Discord from "better-discord.js";
 import {
@@ -51,10 +53,18 @@ const AVATAR_SETTINGS: Discord.ImageURLOptions & { dynamic?: boolean | undefined
 interface IDiscordPuppet {
 	client: Discord.Client;
 	data: any;
+	deletedMessages: ExpireSet<string>;
 }
 
 interface IDiscordPuppets {
 	[puppetId: number]: IDiscordPuppet;
+}
+
+interface IDiscordSendFile {
+	buffer: Buffer;
+	filename: string;
+	url: string;
+	isImage: boolean;
 }
 
 export class DiscordClass {
@@ -63,6 +73,7 @@ export class DiscordClass {
 	private matrixMsgParser: MatrixMessageParser;
 	private messageDeduplicator: MessageDeduplicator;
 	private store: DiscordStore;
+	private lastEventIds: {[chan: string]: string} = {};
 	constructor(
 		private puppet: PuppetBridge,
 	) {
@@ -245,10 +256,11 @@ export class DiscordClass {
 			const lockKey = `${puppetId};${m.channel.id}`;
 			await this.puppet.eventStore.insert(puppetId, matrixId, m.id);
 			this.messageDeduplicator.unlock(lockKey, p.client.user!.id, m.id);
+			this.lastEventIds[m.channel.id] = m.id;
 		}
 	}
 
-	public async handleMatrixMessage(room: IRemoteRoom, data: IMessageEvent, event: any) {
+	public async handleMatrixMessage(room: IRemoteRoom, data: IMessageEvent, asUser: ISendingUser | null, event: any) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -263,7 +275,7 @@ export class DiscordClass {
 		const lockKey = `${room.puppetId};${chan.id}`;
 		this.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
 		try {
-			const reply = await chan.send(sendMsg);
+			const reply = await this.sendToDiscord(chan, sendMsg, asUser);
 			await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 		} catch (err) {
 			log.warn("Couldn't send message", err);
@@ -272,7 +284,7 @@ export class DiscordClass {
 		}
 	}
 
-	public async handleMatrixFile(room: IRemoteRoom, data: IFileEvent, event: any) {
+	public async handleMatrixFile(room: IRemoteRoom, data: IFileEvent, asUser: ISendingUser | null, event: any) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -286,15 +298,22 @@ export class DiscordClass {
 		let size = data.info ? data.info.size || 0 : 0;
 		const mimetype = data.info ? data.info.mimetype || "" : "";
 		const lockKey = `${room.puppetId};${chan.id}`;
+		const isImage = Boolean(mimetype && mimetype.split("/")[0] === "image");
 		if (size < MAXFILESIZE) {
-			const attachment = await Util.DownloadFile(data.url);
-			size = attachment.byteLength;
+			const buffer = await Util.DownloadFile(data.url);
+			size = buffer.byteLength;
 			if (size < MAXFILESIZE) {
 				// send as attachment
 				const filename = this.getFilenameForMedia(data.filename, mimetype);
 				this.messageDeduplicator.lock(lockKey, p.client.user!.id, `file:${filename}`);
 				try {
-					const reply = await chan.send(new Discord.MessageAttachment(attachment, filename));
+					const sendFile: IDiscordSendFile = {
+						buffer,
+						filename,
+						url: data.url,
+						isImage,
+					};
+					const reply = await this.sendToDiscord(chan, sendFile, asUser);
 					await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 					return;
 				} catch (err) {
@@ -304,17 +323,18 @@ export class DiscordClass {
 			}
 		}
 		try {
-			if (mimetype && mimetype.split("/")[0] === "image" && p.client.user!.bot) {
+			if (isImage && p.client.user!.bot) {
 				const embed = new Discord.MessageEmbed()
 					.setTitle(data.filename)
 					.setImage(data.url);
 				this.messageDeduplicator.lock(lockKey, p.client.user!.id, "");
-				const reply = await chan.send(embed);
+				const reply = await this.sendToDiscord(chan, embed, asUser);
 				await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 			} else {
-				const msg = `Uploaded File: [${data.filename}](${data.url})`;
+				const filename = await this.discordEscape(data.filename);
+				const msg = `Uploaded a file \`${filename}\`: ${data.url}`;
 				this.messageDeduplicator.lock(lockKey, p.client.user!.id, msg);
-				const reply = await chan.send(msg);
+				const reply = await this.sendToDiscord(chan, msg, asUser);
 				await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 			}
 		} catch (err) {
@@ -324,7 +344,7 @@ export class DiscordClass {
 		}
 	}
 
-	public async handleMatrixRedact(room: IRemoteRoom, eventId: string, event: any) {
+	public async handleMatrixRedact(room: IRemoteRoom, eventId: string, asUser: ISendingUser | null, event: any) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -339,10 +359,22 @@ export class DiscordClass {
 		if (!msg) {
 			return;
 		}
-		await msg.delete();
+		try {
+			p.deletedMessages.add(msg.id);
+			await msg.delete();
+			await this.puppet.eventStore.remove(room.puppetId, msg.id);
+		} catch (err) {
+			log.warn("Couldn't delete message", err);
+		}
 	}
 
-	public async handleMatrixEdit(room: IRemoteRoom, eventId: string, data: IMessageEvent, event: any) {
+	public async handleMatrixEdit(
+		room: IRemoteRoom,
+		eventId: string,
+		data: IMessageEvent,
+		asUser: ISendingUser | null,
+		event: any,
+	) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -357,12 +389,34 @@ export class DiscordClass {
 		if (!msg) {
 			return;
 		}
-		const sendMsg = await this.parseMatrixMessage(room.puppetId, event.content["m.new_content"]);
+		let sendMsg = await this.parseMatrixMessage(room.puppetId, event.content["m.new_content"]);
 		const lockKey = `${room.puppetId};${chan.id}`;
 		this.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
 		try {
-			const reply = await msg.edit(sendMsg);
-			await this.insertNewEventId(room.puppetId, data.eventId!, reply);
+			let reply: Discord.Message | Discord.Message[];
+			let matrixEventId = data.eventId!;
+			if (asUser) {
+				// just re-send as new message
+				if (eventId === this.lastEventIds[chan.id]) {
+					try {
+						p.deletedMessages.add(msg.id);
+						const matrixEvents = await this.puppet.eventStore.getMatrix(room.puppetId, msg.id);
+						if (matrixEvents.length > 0) {
+							matrixEventId = matrixEvents[0];
+						}
+						await msg.delete();
+						await this.puppet.eventStore.remove(room.puppetId, msg.id);
+					} catch (err) {
+						log.warn("Couldn't delete old message", err);
+					}
+				} else {
+					sendMsg = `**EDIT:** ${sendMsg}`;
+				}
+				reply = await this.sendToDiscord(chan, sendMsg, asUser);
+			} else {
+				reply = await msg.edit(sendMsg);
+			}
+			await this.insertNewEventId(room.puppetId, matrixEventId, reply);
 		} catch (err) {
 			log.warn("Couldn't edit message", err);
 			this.messageDeduplicator.unlock(lockKey);
@@ -370,7 +424,13 @@ export class DiscordClass {
 		}
 	}
 
-	public async handleMatrixReply(room: IRemoteRoom, eventId: string, data: IMessageEvent, event: any) {
+	public async handleMatrixReply(
+		room: IRemoteRoom,
+		eventId: string,
+		data: IMessageEvent,
+		asUser: ISendingUser | null,
+		event: any,
+	) {
 		const p = this.puppets[room.puppetId];
 		if (!p) {
 			return;
@@ -386,9 +446,13 @@ export class DiscordClass {
 			return;
 		}
 		let sendMsg = await this.parseMatrixMessage(room.puppetId, event.content);
+		let content = msg.content;
+		if (!content && msg.embeds.length > 0) {
+			content = msg.embeds[0].description;
+		}
 		const replyEmbed = new Discord.MessageEmbed()
 			.setTimestamp(new Date(msg.createdAt))
-			.setDescription(msg.content)
+			.setDescription(content)
 			.setAuthor(msg.author.username, msg.author.avatarURL(AVATAR_SETTINGS) || undefined);
 		if (msg.embeds && msg.embeds[0]) {
 			const msgEmbed = msg.embeds[0];
@@ -403,7 +467,7 @@ export class DiscordClass {
 				// image!
 				replyEmbed.setImage(attach!.proxyURL);
 			} else {
-				replyEmbed.description += `[${attach!.name}](attach!.proxyURL)`;
+				replyEmbed.description += `[${attach!.name}](${attach!.proxyURL})`;
 			}
 		}
 		const lockKey = `${room.puppetId};${chan.id}`;
@@ -411,11 +475,11 @@ export class DiscordClass {
 			let reply;
 			if (p.client.user!.bot) {
 				this.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
-				reply = await chan.send(sendMsg, replyEmbed);
+				reply = await this.sendToDiscord(chan, sendMsg, asUser, replyEmbed);
 			} else {
 				sendMsg += `\n>>> ${replyEmbed.description}`;
 				this.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
-				reply = await chan.send(sendMsg);
+				reply = await this.sendToDiscord(chan, sendMsg, asUser);
 			}
 			await this.insertNewEventId(room.puppetId, data.eventId!, reply);
 		} catch (err) {
@@ -425,9 +489,15 @@ export class DiscordClass {
 		}
 	}
 
-	public async handleMatrixReaction(room: IRemoteRoom, eventId: string, reaction: string, event: any) {
+	public async handleMatrixReaction(
+		room: IRemoteRoom,
+		eventId: string,
+		reaction: string,
+		asUser: ISendingUser | null,
+		event: any,
+	) {
 		const p = this.puppets[room.puppetId];
-		if (!p) {
+		if (!p || asUser) {
 			return;
 		}
 		const chan = await this.getDiscordChan(p.client, room.roomId);
@@ -450,9 +520,15 @@ export class DiscordClass {
 		}
 	}
 
-	public async handleMatrixRemoveReaction(room: IRemoteRoom, eventId: string, reaction: string, event: any) {
+	public async handleMatrixRemoveReaction(
+		room: IRemoteRoom,
+		eventId: string,
+		reaction: string,
+		asUser: ISendingUser | null,
+		event: any,
+	) {
 		const p = this.puppets[room.puppetId];
-		if (!p) {
+		if (!p || asUser) {
 			return;
 		}
 		const chan = await this.getDiscordChan(p.client, room.roomId);
@@ -502,6 +578,17 @@ export class DiscordClass {
 			log.info("Deduping message, dropping...");
 			return;
 		}
+		if (msg.webhookID && msg.channel instanceof Discord.TextChannel) {
+			// maybe we are a webhook from our webhook?
+			try {
+				const hook = (await msg.channel.fetchWebhooks()).find((h) => h.name === "_matrix") || null;
+				if (hook && msg.webhookID === hook.id) {
+					log.info("Message sent from our webhook, deduping...");
+					return;
+				}
+			} catch (err) { } // no webhook permissions, ignore
+		}
+		this.lastEventIds[msg.channel.id] = msg.id;
 		const externalUrl = params.externalUrl;
 		for ( const [, attachment] of msg.attachments) {
 			params.externalUrl = attachment.url;
@@ -570,7 +657,8 @@ export class DiscordClass {
 		}
 		const params = this.getSendParams(puppetId, msg);
 		const lockKey = `${puppetId};${msg.channel.id}`;
-		if (await this.messageDeduplicator.dedupe(lockKey, msg.author.id, msg.id, msg.content)) {
+		if (p.deletedMessages.has(msg.id) ||
+			await this.messageDeduplicator.dedupe(lockKey, msg.author.id, msg.id, msg.content)) {
 			// dedupe message
 			return;
 		}
@@ -775,9 +863,11 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 				await this.puppet.sendStatusMessage(puppetId, msg);
 			}
 		});
+		const TWO_MIN = 120000;
 		this.puppets[puppetId] = {
 			client,
 			data,
+			deletedMessages: new ExpireSet(TWO_MIN),
 		};
 		await client.login(data.token, data.bot || false);
 	}
@@ -1242,6 +1332,119 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			await sendMessage("User not found");
 			log.warn(`Couldn't find user ${param}:`, err);
 		}
+	}
+
+	private async sendToDiscord(
+		chan: Discord.TextChannel | Discord.DMChannel | Discord.GroupDMChannel,
+		msg: string | Discord.MessageEmbed | IDiscordSendFile,
+		asUser: ISendingUser | null,
+		replyEmbed?: Discord.MessageEmbed,
+	): Promise<Discord.Message | Discord.Message[]> {
+		log.debug("Sending something to discord...");
+		let sendThing: string | Discord.MessageAdditions;
+		if (typeof msg === "string" || msg instanceof Discord.MessageEmbed) {
+			sendThing = msg;
+		} else {
+			sendThing = new Discord.MessageAttachment(msg.buffer, msg.filename);
+		}
+		if (!asUser) {
+			// we don't want to relay, so just send off nicely
+			log.debug("Not in relay mode, just sending as user");
+			return await chan.send(sendThing);
+		}
+		// alright, we have to send as if it was another user. First try webhooks.
+		if (chan instanceof Discord.TextChannel) {
+			log.debug("Trying to send as webhook...");
+			let hook: Discord.Webhook | null = null;
+			try {
+				hook = (await chan.fetchWebhooks()).find((h) => h.name === "_matrix") || null;
+				if (!hook) {
+					try {
+						hook = await chan.createWebhook("_matrix", {
+							reason: "Allow bridging matrix messages to discord nicely",
+						});
+					} catch (err) {
+						log.warn("Unable to create \"_matrix\" webhook", err);
+					}
+				}
+			} catch (err) {
+				log.warn("Missing webhook permissions", err);
+			}
+			if (hook) {
+				const hookOpts: Discord.WebhookMessageOptions & { split: true } = {
+					username: asUser.displayname,
+					avatarURL: asUser.avatarUrl || undefined,
+					embeds: replyEmbed ? [replyEmbed] : [],
+					split: true,
+				};
+				if (typeof sendThing === "string") {
+					return await hook.send(sendThing, hookOpts);
+				}
+				if (sendThing instanceof Discord.MessageAttachment) {
+					hookOpts.files = [sendThing];
+				} else if (sendThing instanceof Discord.MessageEmbed) {
+					hookOpts.embeds!.unshift(sendThing);
+				}
+				return await hook.send(hookOpts);
+			}
+			log.debug("Couldn't send as webhook");
+		}
+		// alright, we either weren't able to send as webhook or we aren't in a webhook-able channel.
+		// so.....let's try to send as embed next
+		if (chan.client.user!.bot) {
+			log.debug("Trying to send as embed...");
+			const embed = new Discord.MessageEmbed();
+			if (typeof msg === "string") {
+				embed.setDescription(msg);
+			} else if (msg instanceof Discord.MessageEmbed) {
+				if (msg.image) {
+					embed.setTitle(msg.title);
+					embed.setImage(msg.image.url);
+				}
+			} else if (msg.isImage) {
+				embed.setTitle(msg.filename);
+				embed.setImage(msg.url);
+			} else {
+				const filename = await this.discordEscape(msg.filename);
+				embed.setDescription(`Uploaded a file \`${filename}\`: ${msg.url}`);
+			}
+			if (replyEmbed && replyEmbed.description) {
+				embed.addField("Replying to", replyEmbed.author!.name);
+				embed.addField("Reply text", replyEmbed.description);
+			}
+			embed.setAuthor(asUser.displayname, asUser.avatarUrl || undefined, `https://matrix.to/#/${asUser.mxid}`);
+			return await chan.send(embed);
+		}
+		// alright, nothing is working....let's prefix the displayname and send stuffs
+		log.debug("Prepending sender information to send the message out...");
+		const displayname = await this.discordEscape(asUser.displayname);
+		let sendMsg = "";
+		if (typeof msg === "string") {
+			sendMsg = `**${displayname}**: ${msg}`;
+		} else if (msg instanceof Discord.MessageEmbed) {
+			if (msg.image) {
+				if (msg.title) {
+					const filename = await this.discordEscape(msg.title);
+					sendMsg = `**${displayname}** uploaded a file \`${filename}\`: ${msg.image}`;
+				} else {
+					sendMsg = `**${displayname}** uploaded a file: ${msg.image}`;
+				}
+			}
+		} else {
+			const filename = await this.discordEscape(msg.filename);
+			sendMsg = `**${displayname}** uploaded a file \`${filename}\`: ${msg.url}`;
+		}
+		if (replyEmbed && replyEmbed.description) {
+			sendMsg += `\n>>> ${replyEmbed.description}`;
+		}
+		return await chan.send(sendMsg);
+	}
+
+	private async discordEscape(msg: string): Promise<string> {
+		return await this.parseMatrixMessage(-1, {
+			body: msg,
+			msgtype: "m.text",
+		});
 	}
 
 	private async updatePresence(puppetId: number, presence: Discord.Presence) {

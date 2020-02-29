@@ -52,12 +52,13 @@ if (options.help) {
 	process.exit(0);
 }
 
-const protocol = {
+const protocol: IProtocolInformation = {
 	features: {
 		file: true,
 		presence: true,
 		edit: true,
 		reply: true,
+		advancedRelay: true,
 	},
 	id: "discord",
 	displayname: "Discord",
@@ -68,7 +69,7 @@ const protocol = {
 		room: "[:guild?#:name - :guild,:name]",
 		group: ":name",
 	},
-} as IProtocolInformation;
+};
 
 const puppet = new PuppetBridge(options["registration-file"], options.config, protocol);
 
