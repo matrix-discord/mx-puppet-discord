@@ -1350,6 +1350,9 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		if (!asUser) {
 			// we don't want to relay, so just send off nicely
 			log.debug("Not in relay mode, just sending as user");
+			if (replyEmbed && chan.client.user!.bot) {
+				return await chan.send(sendThing, replyEmbed);
+			}
 			return await chan.send(sendThing);
 		}
 		// alright, we have to send as if it was another user. First try webhooks.
