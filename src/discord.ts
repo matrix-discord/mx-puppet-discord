@@ -131,7 +131,7 @@ export class DiscordClass {
 			if (chan) {
 				response.roomOverrides[chan.id] = this.getRemoteUserRoomOverride(member, chan);
 			} else {
-				for (const [, gchan] of member.guild.channels) {
+				for (const gchan of member.guild.channels.array()) {
 					if (gchan.type === "text") {
 						response.roomOverrides[gchan.id] = this.getRemoteUserRoomOverride(member, gchan);
 					}
@@ -545,7 +545,7 @@ export class DiscordClass {
 		if (reaction.startsWith("mxc://")) {
 			emoji = await this.getDiscordEmoji(p.client, reaction);
 		}
-		for (const [, r] of msg.reactions) {
+		for (const r of msg.reactions.array()) {
 			if (r.emoji.name === reaction) {
 				await r.remove();
 				break;
@@ -590,7 +590,7 @@ export class DiscordClass {
 		}
 		this.lastEventIds[msg.channel.id] = msg.id;
 		const externalUrl = params.externalUrl;
-		for ( const [, attachment] of msg.attachments) {
+		for (const attachment of msg.attachments.array()) {
 			params.externalUrl = attachment.url;
 			await this.puppet.sendFileDetect(params, attachment.url, attachment.name);
 		}
@@ -713,7 +713,7 @@ export class DiscordClass {
 			await this.puppet.sendStatusMessage(puppetId, "connected");
 			await this.updateUserInfo(puppetId);
 			// set initial presence for everyone
-			for (const [, user] of client.users) {
+			for (const user of client.users.array()) {
 				await this.updatePresence(puppetId, user.presence);
 			}
 		});
@@ -739,7 +739,7 @@ export class DiscordClass {
 			}
 		});
 		client.on("messageDeleteBulk", async (msgs: Discord.Collection<Discord.Snowflake, Discord.Message>) => {
-			for (const [, msg] of msgs) {
+			for (const msg of msgs.array()) {
 				try {
 					await this.handleDiscordMessageDelete(puppetId, msg);
 				} catch (err) {
@@ -847,7 +847,7 @@ export class DiscordClass {
 			try {
 				const remoteGroup = await this.getRemoteGroup(puppetId, guild);
 				await this.puppet.updateGroup(remoteGroup);
-				for (const [, chan] of guild.channels) {
+				for (const chan of guild.channels.array()) {
 					const remoteChan = this.getRemoteRoom(puppetId, chan);
 					await this.puppet.updateRoom(remoteChan);
 				}
@@ -900,10 +900,10 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		}
 		const remoteUser = this.getRemoteUser(user.puppetId, u);
 		remoteUser.roomOverrides = {};
-		for (const [, guild] of p.client.guilds) {
+		for (const guild of p.client.guilds.array()) {
 			const member = guild.members.get(u.id);
 			if (member) {
-				for (const [, chan] of guild.channels) {
+				for (const chan of guild.channels.array()) {
 					if (chan.type === "text") {
 						remoteUser.roomOverrides[chan.id] = this.getRemoteUserRoomOverride(member, chan);
 					}
@@ -951,7 +951,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 				category: true,
 				name: guild.name,
 			});
-			for (const [, member] of guild.members) {
+			for (const member of guild.members.array()) {
 				if (!blacklistedIds.includes(member.user.id)) {
 					retGuilds.push({
 						name: member.user.username,
@@ -961,7 +961,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			}
 		}
 
-		for (const [, user] of p.client.users) {
+		for (const user of p.client.users.array()) {
 			const found = retGuilds.find((element) => element.id === user.id);
 			if (!found && !blacklistedIds.includes(user.id)) {
 				retUsers.push({
@@ -981,7 +981,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		if (!p) {
 			return [];
 		}
-		for (const [, guild] of p.client.guilds) {
+		for (const guild of p.client.guilds.array()) {
 			let didGuild = false;
 			let didCat = false;
 			await this.iterateGuildStructure(puppetId, guild,
@@ -1007,7 +1007,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 				},
 			);
 		}
-		for (const [, chan] of p.client.channels) {
+		for (const chan of p.client.channels.array()) {
 			if (chan instanceof Discord.GroupDMChannel) {
 				const found = retGuilds.find((element) => element.id === chan.id);
 				if (!found) {
@@ -1069,7 +1069,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			await sendMessage("Guild not bridged!");
 			return;
 		}
-		for (const [, chan] of guild.channels) {
+		for (const chan of guild.channels.array()) {
 			if (chan.type !== "text") {
 				continue;
 			}
@@ -1090,7 +1090,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		}
 		const guilds = await this.store.getBridgedGuilds(puppetId);
 		let sendStr = "Guilds:\n";
-		for (const [, guild] of p.client.guilds) {
+		for (const guild of p.client.guilds.array()) {
 			let sendStrPart = ` - ${guild.name} (\`${guild.id}\`)`;
 			if (guilds.includes(guild.id)) {
 				sendStrPart += " **bridged!**";
@@ -1178,7 +1178,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		}
 		let channel: Discord.TextChannel | undefined;
 		let guild: Discord.Guild | undefined;
-		for (const [, g] of p.client.guilds) {
+		for (const g of p.client.guilds.array()) {
 			channel = g.channels.get(param) as Discord.TextChannel;
 			if (channel && channel.type === "text") {
 				guild = g;
@@ -1246,7 +1246,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		const friends = p.client.user!.relationships.friends;
 		if (friends.size > 0) {
 			sendStr += "Friends:\n";
-			for (const [, user] of p.client.user!.relationships.friends) {
+			for (const user of p.client.user!.relationships.friends.array()) {
 				const mxid = await this.puppet.getMxidForUser({
 					puppetId,
 					userId: user.id,
@@ -1262,7 +1262,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		const incoming = p.client.user!.relationships.incoming;
 		if (incoming.size > 0) {
 			sendStr += "\nIncoming friend requests:\n";
-			for (const [, user] of incoming) {
+			for (const user of incoming.array()) {
 				const sendStrPart = ` - ${user.username} (\`${user.id}\`)\n`;
 				if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
 					await sendMessage(sendStr);
@@ -1274,7 +1274,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		const outgoing = p.client.user!.relationships.outgoing;
 		if (outgoing.size > 0) {
 			sendStr += "\nOutgoing friend requests:\n";
-			for (const [, user] of outgoing) {
+			for (const user of outgoing.array()) {
 				const sendStrPart = ` - ${user.username} (\`${user.id}\`)\n`;
 				if (sendStr.length + sendStrPart.length > MAX_MSG_SIZE) {
 					await sendMessage(sendStr);
@@ -1524,7 +1524,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			let name = chan.name;
 			if (!name) {
 				const names: string[] = [];
-				for (const [, user] of chan.recipients) {
+				for (const user of chan.recipients.array()) {
 					names.push(user.username);
 				}
 				name = names.join(", ");
@@ -1578,7 +1578,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 	}
 
 	private async getUserById(client: Discord.Client, id: string): Promise<Discord.User | null> {
-		for (const [, guild] of client.guilds) {
+		for (const guild of client.guilds.array()) {
 			const a = guild.members.find((m) => m.user.id === id);
 			if (a) {
 				return a.user;
@@ -1611,7 +1611,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 				}
 			}
 			// next iterate over all the guild channels
-			for (const [, guild] of client.guilds) {
+			for (const guild of client.guilds.array()) {
 				const c = guild.channels.get(id);
 				if (c && c instanceof Discord.TextChannel) {
 					return c;
@@ -1721,7 +1721,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		const bridgedChannels = await this.store.getBridgedChannels(puppetId);
 		const client = guild.client;
 		// first we iterate over the non-sorted channels
-		for (const [, chan] of guild.channels) {
+		for (const chan of guild.channels.array()) {
 			if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id)) {
 				continue;
 			}
@@ -1732,14 +1732,14 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			}
 		}
 		// next we iterate over the categories and all their children
-		for (const [, cat] of guild.channels) {
+		for (const cat of guild.channels.array()) {
 			if (!(cat instanceof Discord.CategoryChannel)) {
 				continue;
 			}
 			const catPermissions = cat.permissionsFor(client.user!);
 			if (!catPermissions || catPermissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number)) {
 				let doCat = false;
-				for (const [, chan] of cat.children) {
+				for (const chan of cat.children.array()) {
 					if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id)) {
 						continue;
 					}
