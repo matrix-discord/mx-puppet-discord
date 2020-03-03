@@ -1,3 +1,4 @@
+/* tslint:disable: no-any */
 /*
 Copyright 2019, 2020 mx-puppet-discord
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +21,7 @@ import {
 } from "mx-puppet-bridge";
 import * as commandLineArgs from "command-line-args";
 import * as commandLineUsage from "command-line-usage";
-import { DiscordClass } from "./discord";
+import { App } from "./app";
 
 const log = new Log("DiscordPuppet:index");
 
@@ -91,26 +92,26 @@ if (options.register) {
 
 async function run() {
 	await puppet.init();
-	const discord = new DiscordClass(puppet);
-	await discord.init();
-	puppet.on("puppetNew", discord.newPuppet.bind(discord));
-	puppet.on("puppetDelete", discord.deletePuppet.bind(discord));
-	puppet.on("message", discord.handleMatrixMessage.bind(discord));
-	puppet.on("file", discord.handleMatrixFile.bind(discord));
-	puppet.on("redact", discord.handleMatrixRedact.bind(discord));
-	puppet.on("edit", discord.handleMatrixEdit.bind(discord));
-	puppet.on("reply", discord.handleMatrixReply.bind(discord));
-	puppet.on("reaction", discord.handleMatrixReaction.bind(discord));
-	puppet.on("removeReaction", discord.handleMatrixRemoveReaction.bind(discord));
-	puppet.on("puppetName", discord.handlePuppetName.bind(discord));
-	puppet.on("puppetAvatar", discord.handlePuppetAvatar.bind(discord));
-	puppet.setGetUserIdsInRoomHook(discord.getUserIdsInRoom.bind(discord));
-	puppet.setCreateRoomHook(discord.createRoom.bind(discord));
-	puppet.setCreateUserHook(discord.createUser.bind(discord));
-	puppet.setCreateGroupHook(discord.createGroup.bind(discord));
-	puppet.setGetDmRoomIdHook(discord.getDmRoom.bind(discord));
-	puppet.setListUsersHook(discord.listUsers.bind(discord));
-	puppet.setListRoomsHook(discord.listRooms.bind(discord));
+	const app = new App(puppet);
+	await app.init();
+	puppet.on("puppetNew", app.newPuppet.bind(app));
+	puppet.on("puppetDelete", app.deletePuppet.bind(app));
+	puppet.on("message", app.matrix.events.handleMatrixMessage.bind(app.matrix.events));
+	puppet.on("file", app.matrix.events.handleMatrixFile.bind(app.matrix.events));
+	puppet.on("redact", app.matrix.events.handleMatrixRedact.bind(app.matrix.events));
+	puppet.on("edit", app.matrix.events.handleMatrixEdit.bind(app.matrix.events));
+	puppet.on("reply", app.matrix.events.handleMatrixReply.bind(app.matrix.events));
+	puppet.on("reaction", app.matrix.events.handleMatrixReaction.bind(app.matrix.events));
+	puppet.on("removeReaction", app.matrix.events.handleMatrixRemoveReaction.bind(app.matrix.events));
+	puppet.on("puppetName", app.handlePuppetName.bind(app));
+	puppet.on("puppetAvatar", app.handlePuppetAvatar.bind(app));
+	puppet.setGetUserIdsInRoomHook(app.getUserIdsInRoom.bind(app));
+	puppet.setCreateRoomHook(app.matrix.createRoom.bind(app.matrix));
+	puppet.setCreateUserHook(app.matrix.createUser.bind(app.matrix));
+	puppet.setCreateGroupHook(app.matrix.createGroup.bind(app.matrix));
+	puppet.setGetDmRoomIdHook(app.matrix.getDmRoom.bind(app.matrix));
+	puppet.setListUsersHook(app.listUsers.bind(app));
+	puppet.setListRoomsHook(app.matrix.listRooms.bind(app.matrix));
 	puppet.setGetDescHook(async (puppetId: number, data: any): Promise<string> => {
 		let s = "Discord";
 		if (data.username) {
@@ -151,73 +152,73 @@ async function run() {
 		return "Discord Puppet Bridge";
 	});
 	puppet.registerCommand("syncprofile", {
-		fn: discord.commandSyncProfile.bind(discord),
+		fn: app.commands.commandSyncProfile.bind(app.commands),
 		help: `Enable/disable the syncing of the matrix profile to the discord one (name and avatar)
 
 Usage: \`syncprofile <puppetId> <1/0>\``,
 	});
 	puppet.registerCommand("joinentireguild", {
-		fn: discord.commandJoinEntireGuild.bind(discord),
+		fn: app.commands.commandJoinEntireGuild.bind(app.commands),
 		help: `Join all the channels in a guild, if it is bridged
 
 Usage: \`joinentireguild <puppetId> <guildId>\``,
 	});
 	puppet.registerCommand("listguilds", {
-		fn: discord.commandListGuilds.bind(discord),
+		fn: app.commands.commandListGuilds.bind(app.commands),
 		help: `List all guilds that can be bridged
 
 Usage: \`listguilds <puppetId>\``,
 	});
 	puppet.registerCommand("acceptinvite", {
-		fn: discord.commandAcceptInvite.bind(discord),
+		fn: app.commands.commandAcceptInvite.bind(app.commands),
 		help: `Accept a discord.gg invite
 
 Usage: \`acceptinvite <puppetId> <inviteLink>\``,
 	});
 	puppet.registerCommand("bridgeguild", {
-		fn: discord.commandBridgeGuild.bind(discord),
+		fn: app.commands.commandBridgeGuild.bind(app.commands),
 		help: `Bridge a guild
 
 Usage: \`bridgeguild <puppetId> <guildId>\``,
 	});
 	puppet.registerCommand("unbridgeguild", {
-		fn: discord.commandUnbridgeGuild.bind(discord),
+		fn: app.commands.commandUnbridgeGuild.bind(app.commands),
 		help: `Unbridge a guild
 
 Usage: \`unbridgeguild <puppetId> <guildId>\``,
 	});
 	puppet.registerCommand("bridgechannel", {
-		fn: discord.commandBridgeChannel.bind(discord),
+		fn: app.commands.commandBridgeChannel.bind(app.commands),
 		help: `Bridge a channel
 
 Usage: \`bridgechannel <puppetId> <channelId>\``,
 	});
 	puppet.registerCommand("unbridgechannel", {
-		fn: discord.commandUnbridgeChannel.bind(discord),
+		fn: app.commands.commandUnbridgeChannel.bind(app.commands),
 		help: `Unbridge a channel
 
 Usage: \`unbridgechannel <puppetId> <channelId>\``,
 	});
 	puppet.registerCommand("enablefriendsmanagement", {
-		fn: discord.commandEnableFriendsManagement.bind(discord),
+		fn: app.commands.commandEnableFriendsManagement.bind(app.commands),
 		help: `Enables friends management on the discord account
 
 Usage: \`enablefriendsmanagement <puppetId>\``,
 	});
 	puppet.registerCommand("listfriends", {
-		fn: discord.commandListFriends.bind(discord),
+		fn: app.commands.commandListFriends.bind(app.commands),
 		help: `List all your current friends
 
 Usage: \`listfriends <puppetId>\``,
 	});
 	puppet.registerCommand("addfriend", {
-		fn: discord.commandAddFriend.bind(discord),
+		fn: app.commands.commandAddFriend.bind(app.commands),
 		help: `Add a new friend
 
 Usage: \`addfriend <puppetId> <friend>\`, friend can be either the full username or the user ID`,
 	});
 	puppet.registerCommand("removefriend", {
-		fn: discord.commandRemoveFriend.bind(discord),
+		fn: app.commands.commandRemoveFriend.bind(app.commands),
 		help: `Remove a friend
 
 Usage: \`removefriend <puppetId> <friend>\`, friend can be either the full username or the user ID`,
