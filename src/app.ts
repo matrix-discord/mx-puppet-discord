@@ -363,7 +363,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		return false;
 	}
 
-	private getFilenameForMedia(filename: string, mimetype: string): string {
+	public getFilenameForMedia(filename: string, mimetype: string): string {
 		let ext = "";
 		const mimeExt = mime.getExtension(mimetype);
 		if (mimeExt) {

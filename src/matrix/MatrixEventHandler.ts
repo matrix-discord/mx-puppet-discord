@@ -18,14 +18,14 @@ import * as Discord from "better-discord.js";
 const log = new Log("DiscordPuppet:MatrixEventHandler");
 
 export class MatrixEventHandler {
-	public constructor(private readonly app) {}
+	public constructor(private readonly app: App) {}
 
 	public async handleMatrixMessage(room: IRemoteRoom, data: IMessageEvent, asUser: ISendingUser | null, event: any) {
 		const p = this.app.puppets[room.puppetId];
 		if (!p) {
 			return;
 		}
-		const chan = await this.app.getDiscordChan(p.client, room.roomId);
+		const chan = await this.app.discord.getDiscordChan(p.client, room.roomId);
 		if (!chan) {
 			log.warn("Channel not found", room);
 			return;
@@ -35,7 +35,7 @@ export class MatrixEventHandler {
 		const lockKey = `${room.puppetId};${chan.id}`;
 		this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
 		try {
-			const reply = await this.app.sendToDiscord(chan, sendMsg, asUser);
+			const reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser);
 			await this.app.matrix.insertNewEventId(room.puppetId, data.eventId!, reply);
 		} catch (err) {
 			log.warn("Couldn't send message", err);

@@ -26,7 +26,7 @@ export class MatrixUtil {
 	public readonly events: MatrixEventHandler;
 
 	public constructor(private readonly app: App) {
-		this.events = new MatrixEventHandler(this);
+		this.events = new MatrixEventHandler(app);
 	}
 
 	public async getDmRoom(user: IRemoteUser): Promise<string | null> {

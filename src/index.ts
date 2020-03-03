@@ -96,21 +96,21 @@ async function run() {
 	await app.init();
 	puppet.on("puppetNew", app.newPuppet.bind(app));
 	puppet.on("puppetDelete", app.deletePuppet.bind(app));
-	puppet.on("message", app.matrix.events.handleMatrixMessage.bind(app));
-	puppet.on("file", app.matrix.events.handleMatrixFile.bind(app));
-	puppet.on("redact", app.matrix.events.handleMatrixRedact.bind(app));
-	puppet.on("edit", app.matrix.events.handleMatrixEdit.bind(app));
-	puppet.on("reply", app.matrix.events.handleMatrixReply.bind(app));
-	puppet.on("reaction", app.matrix.events.handleMatrixReaction.bind(app));
-	puppet.on("removeReaction", app.matrix.events.handleMatrixRemoveReaction.bind(app));
+	puppet.on("message", app.matrix.events.handleMatrixMessage.bind(app.matrix.events));
+	puppet.on("file", app.matrix.events.handleMatrixFile.bind(app.matrix.events));
+	puppet.on("redact", app.matrix.events.handleMatrixRedact.bind(app.matrix.events));
+	puppet.on("edit", app.matrix.events.handleMatrixEdit.bind(app.matrix.events));
+	puppet.on("reply", app.matrix.events.handleMatrixReply.bind(app.matrix.events));
+	puppet.on("reaction", app.matrix.events.handleMatrixReaction.bind(app.matrix.events));
+	puppet.on("removeReaction", app.matrix.events.handleMatrixRemoveReaction.bind(app.matrix.events));
 	puppet.on("puppetName", app.handlePuppetName.bind(app));
 	puppet.on("puppetAvatar", app.handlePuppetAvatar.bind(app));
-	puppet.setCreateRoomHook(app.matrix.createRoom.bind(app));
-	puppet.setCreateUserHook(app.matrix.createUser.bind(app));
-	puppet.setCreateGroupHook(app.matrix.createGroup.bind(app));
-	puppet.setGetDmRoomIdHook(app.matrix.getDmRoom.bind(app));
+	puppet.setCreateRoomHook(app.matrix.createRoom.bind(app.matrix));
+	puppet.setCreateUserHook(app.matrix.createUser.bind(app.matrix));
+	puppet.setCreateGroupHook(app.matrix.createGroup.bind(app.matrix));
+	puppet.setGetDmRoomIdHook(app.matrix.getDmRoom.bind(app.matrix));
 	puppet.setListUsersHook(app.listUsers.bind(app));
-	puppet.setListRoomsHook(app.matrix.listRooms.bind(app));
+	puppet.setListRoomsHook(app.matrix.listRooms.bind(app.matrix));
 	puppet.setGetDescHook(async (puppetId: number, data: any): Promise<string> => {
 		let s = "Discord";
 		if (data.username) {
