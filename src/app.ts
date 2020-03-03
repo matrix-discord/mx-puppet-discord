@@ -19,6 +19,7 @@ import {
 	IRetList,
 	MessageDeduplicator,
 	ExpireSet,
+	IRemoteRoom,
 } from "mx-puppet-bridge";
 import * as Discord from "better-discord.js";
 import {
@@ -251,7 +252,7 @@ export class App {
 			const promiseList: Promise<void>[] = [];
 			if (oldMember.displayName !== newMember.displayName) {
 				promiseList.push((async () => {
-					const remoteUser = this.getRemoteUser(puppetId, newMember);
+					const remoteUser = this.matrix.getRemoteUser(puppetId, newMember);
 					await this.puppet.updateUser(remoteUser);
 				})());
 			}
@@ -270,13 +271,13 @@ export class App {
 			}
 			for (const chan of leaveRooms) {
 				promiseList.push((async () => {
-					const params = this.getSendParams(puppetId, chan, newMember);
+					const params = this.matrix.getSendParams(puppetId, chan, newMember);
 					await this.puppet.removeUser(params);
 				})());
 			}
 			for (const chan of joinRooms) {
 				promiseList.push((async () => {
-					const params = this.getSendParams(puppetId, chan, newMember);
+					const params = this.matrix.getSendParams(puppetId, chan, newMember);
 					await this.puppet.addUser(params);
 				})());
 			}
@@ -311,7 +312,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			for (const chan of member.guild.channels.array()) {
 				if ((await this.bridgeRoom(puppetId, chan)) && chan.members.has(member.id)) {
 					promiseList.push((async () => {
-						const params = this.getSendParams(puppetId, chan, member);
+						const params = this.matrix.getSendParams(puppetId, chan, member);
 						await this.puppet.addUser(params);
 					})());
 				}
@@ -322,7 +323,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			const promiseList: Promise<void>[] = [];
 			for (const chan of member.guild.channels.array()) {
 				promiseList.push((async () => {
-					const params = this.getSendParams(puppetId, chan, member);
+					const params = this.matrix.getSendParams(puppetId, chan, member);
 					await this.puppet.removeUser(params);
 				})());
 			}
@@ -388,7 +389,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		if (!p) {
 			return null;
 		}
-		const chan = await this.getDiscordChan(p.client, room.roomId);
+		const chan = await this.discord.getDiscordChan(p.client, room.roomId);
 		if (!chan) {
 			return null;
 		}
