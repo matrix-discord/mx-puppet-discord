@@ -104,6 +104,7 @@ async function run() {
 	puppet.on("removeReaction", discord.handleMatrixRemoveReaction.bind(discord));
 	puppet.on("puppetName", discord.handlePuppetName.bind(discord));
 	puppet.on("puppetAvatar", discord.handlePuppetAvatar.bind(discord));
+	puppet.setGetUserIdsInRoomHook(discord.getUserIdsInRoom.bind(discord));
 	puppet.setCreateRoomHook(discord.createRoom.bind(discord));
 	puppet.setCreateUserHook(discord.createUser.bind(discord));
 	puppet.setCreateGroupHook(discord.createGroup.bind(discord));

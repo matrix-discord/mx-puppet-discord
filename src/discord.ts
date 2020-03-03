@@ -834,10 +834,40 @@ export class DiscordClass {
 			await this.puppet.updateRoom(remoteChan);
 		});
 		client.on("guildMemberUpdate", async (oldMember: Discord.GuildMember, newMember: Discord.GuildMember) => {
+			// check for displayname change
+			const promiseList: Promise<void>[] = [];
 			if (oldMember.displayName !== newMember.displayName) {
-				const remoteUser = this.getRemoteUser(puppetId, newMember);
-				await this.puppet.updateUser(remoteUser);
+				promiseList.push((async () => {
+					const remoteUser = this.getRemoteUser(puppetId, newMember);
+					await this.puppet.updateUser(remoteUser);
+				})());
 			}
+			// aaaand check for role change
+			const leaveRooms = new Set<Discord.TextChannel>();
+			const joinRooms = new Set<Discord.TextChannel>();
+			for (const chan of newMember.guild.channels.array()) {
+				if (!(chan instanceof Discord.TextChannel)) {
+					continue;
+				}
+				if (chan.members.has(newMember.id)) {
+					joinRooms.add(chan);
+				} else {
+					leaveRooms.add(chan);
+				}
+			}
+			for (const chan of leaveRooms) {
+				promiseList.push((async () => {
+					const params = this.getSendParams(puppetId, chan, newMember);
+					await this.puppet.removeUser(params);
+				})());
+			}
+			for (const chan of joinRooms) {
+				promiseList.push((async () => {
+					const params = this.getSendParams(puppetId, chan, newMember);
+					await this.puppet.addUser(params);
+				})());
+			}
+			await Promise.all(promiseList);
 		});
 		client.on("userUpdate", async (_, user: Discord.User) => {
 			const remoteUser = this.getRemoteUser(puppetId, user);
@@ -863,6 +893,28 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 				await this.puppet.sendStatusMessage(puppetId, msg);
 			}
 		});
+		client.on("guildMemberAdd", async (member: Discord.GuildMember) => {
+			const promiseList: Promise<void>[] = [];
+			for (const chan of member.guild.channels.array()) {
+				if ((await this.bridgeRoom(puppetId, chan)) && chan.members.has(member.id)) {
+					promiseList.push((async () => {
+						const params = this.getSendParams(puppetId, chan, member);
+						await this.puppet.addUser(params);
+					})());
+				}
+			}
+			await Promise.all(promiseList);
+		});
+		client.on("guildMemberRemove", async (member: Discord.GuildMember) => {
+			const promiseList: Promise<void>[] = [];
+			for (const chan of member.guild.channels.array()) {
+				promiseList.push((async () => {
+					const params = this.getSendParams(puppetId, chan, member);
+					await this.puppet.removeUser(params);
+				})());
+			}
+			await Promise.all(promiseList);
+		});
 		const TWO_MIN = 120000;
 		this.puppets[puppetId] = {
 			client,
@@ -880,6 +932,36 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		}
 		p.client.destroy();
 		delete this.puppet[puppetId];
+	}
+
+	public async getUserIdsInRoom(room: IRemoteRoom): Promise<Set<string> | null> {
+		const p = this.puppets[room.puppetId];
+		if (!p) {
+			return null;
+		}
+		const chan = await this.getDiscordChan(p.client, room.roomId);
+		if (!chan) {
+			return null;
+		}
+		const users = new Set<string>();
+		if (chan instanceof Discord.DMChannel) {
+			users.add(chan.recipient.id);
+			return users;
+		}
+		if (chan instanceof Discord.GroupDMChannel) {
+			for (const recipient of chan.recipients.array()) {
+				users.add(recipient.id);
+			}
+			return users;
+		}
+		if (chan instanceof Discord.TextChannel) {
+			// chan.members already does a permission check, yay!
+			for (const member of chan.members.array()) {
+				users.add(member.id);
+			}
+			return users;
+		}
+		return null;
 	}
 
 	public async createRoom(chan: IRemoteRoom): Promise<IRemoteRoom | null> {
@@ -1073,8 +1155,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			if (chan.type !== "text") {
 				continue;
 			}
-			const permissions = chan.permissionsFor(p.client.user!);
-			if (!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number)) {
+			if (chan.members.has(p.client.user!.id)) {
 				const remoteChan = this.getRemoteRoom(puppetId, chan);
 				await this.puppet.bridgeRoom(remoteChan);
 			}
@@ -1725,9 +1806,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id)) {
 				continue;
 			}
-			const permissions = chan.permissionsFor(client.user!);
-			if (!chan.parentID && chan instanceof Discord.TextChannel &&
-				(!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
+			if (!chan.parentID && chan instanceof Discord.TextChannel && chan.members.has(client.user!.id)) {
 				await chanCallback(chan);
 			}
 		}
@@ -1736,16 +1815,13 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			if (!(cat instanceof Discord.CategoryChannel)) {
 				continue;
 			}
-			const catPermissions = cat.permissionsFor(client.user!);
-			if (!catPermissions || catPermissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number)) {
+			if (cat.members.has(client.user!.id)) {
 				let doCat = false;
 				for (const [, chan] of cat.children) {
 					if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id)) {
 						continue;
 					}
-					const permissions = chan.permissionsFor(client.user!);
-					if (chan instanceof Discord.TextChannel &&
-						(!permissions || permissions.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number))) {
+					if (chan instanceof Discord.TextChannel && chan.members.has(client.user!.id)) {
 						if (!doCat) {
 							doCat = true;
 							await catCallback(cat);
