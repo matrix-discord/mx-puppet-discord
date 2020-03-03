@@ -151,73 +151,73 @@ async function run() {
 		return "Discord Puppet Bridge";
 	});
 	puppet.registerCommand("syncprofile", {
-		fn: app.commands.commandSyncProfile.bind(app),
+		fn: app.commands.commandSyncProfile.bind(app.commands),
 		help: `Enable/disable the syncing of the matrix profile to the discord one (name and avatar)
 
 Usage: \`syncprofile <puppetId> <1/0>\``,
 	});
 	puppet.registerCommand("joinentireguild", {
-		fn: app.commands.commandJoinEntireGuild.bind(app),
+		fn: app.commands.commandJoinEntireGuild.bind(app.commands),
 		help: `Join all the channels in a guild, if it is bridged
 
 Usage: \`joinentireguild <puppetId> <guildId>\``,
 	});
 	puppet.registerCommand("listguilds", {
-		fn: app.commands.commandListGuilds.bind(app),
+		fn: app.commands.commandListGuilds.bind(app.commands),
 		help: `List all guilds that can be bridged
 
 Usage: \`listguilds <puppetId>\``,
 	});
 	puppet.registerCommand("acceptinvite", {
-		fn: app.commands.commandAcceptInvite.bind(app),
+		fn: app.commands.commandAcceptInvite.bind(app.commands),
 		help: `Accept a discord.gg invite
 
 Usage: \`acceptinvite <puppetId> <inviteLink>\``,
 	});
 	puppet.registerCommand("bridgeguild", {
-		fn: app.commands.commandBridgeGuild.bind(app),
+		fn: app.commands.commandBridgeGuild.bind(app.commands),
 		help: `Bridge a guild
 
 Usage: \`bridgeguild <puppetId> <guildId>\``,
 	});
 	puppet.registerCommand("unbridgeguild", {
-		fn: app.commands.commandUnbridgeGuild.bind(app),
+		fn: app.commands.commandUnbridgeGuild.bind(app.commands),
 		help: `Unbridge a guild
 
 Usage: \`unbridgeguild <puppetId> <guildId>\``,
 	});
 	puppet.registerCommand("bridgechannel", {
-		fn: app.commands.commandBridgeChannel.bind(app),
+		fn: app.commands.commandBridgeChannel.bind(app.commands),
 		help: `Bridge a channel
 
 Usage: \`bridgechannel <puppetId> <channelId>\``,
 	});
 	puppet.registerCommand("unbridgechannel", {
-		fn: app.commands.commandUnbridgeChannel.bind(app),
+		fn: app.commands.commandUnbridgeChannel.bind(app.commands),
 		help: `Unbridge a channel
 
 Usage: \`unbridgechannel <puppetId> <channelId>\``,
 	});
 	puppet.registerCommand("enablefriendsmanagement", {
-		fn: app.commands.commandEnableFriendsManagement.bind(app),
+		fn: app.commands.commandEnableFriendsManagement.bind(app.commands),
 		help: `Enables friends management on the discord account
 
 Usage: \`enablefriendsmanagement <puppetId>\``,
 	});
 	puppet.registerCommand("listfriends", {
-		fn: app.commands.commandListFriends.bind(app),
+		fn: app.commands.commandListFriends.bind(app.commands),
 		help: `List all your current friends
 
 Usage: \`listfriends <puppetId>\``,
 	});
 	puppet.registerCommand("addfriend", {
-		fn: app.commands.commandAddFriend.bind(app),
+		fn: app.commands.commandAddFriend.bind(app.commands),
 		help: `Add a new friend
 
 Usage: \`addfriend <puppetId> <friend>\`, friend can be either the full username or the user ID`,
 	});
 	puppet.registerCommand("removefriend", {
-		fn: app.commands.commandRemoveFriend.bind(app),
+		fn: app.commands.commandRemoveFriend.bind(app.commands),
 		help: `Remove a friend
 
 Usage: \`removefriend <puppetId> <friend>\`, friend can be either the full username or the user ID`,
