@@ -1,11 +1,11 @@
 import { App } from "./app";
-import { SendMessageFn } from "mx-puppet-bridge";
+import { SendMessageFn, Log } from "mx-puppet-bridge";
 import * as Discord from "better-discord.js";
 
+const log = new Log("DiscordPuppet:Commands");
 const MAX_MSG_SIZE = 4000;
 
 export class Commands {
-
 	constructor(private readonly app: App) {}
 
 	public async commandSyncProfile(puppetId: number, param: string, sendMessage: SendMessageFn) {
@@ -101,7 +101,7 @@ export class Commands {
 			} else {
 				await sendMessage(`Invalid invite code \`${inviteCode}\``);
 			}
-			App.log.warn(`Invalid invite code ${inviteCode}:`, err);
+			log.warn(`Invalid invite code ${inviteCode}:`, err);
 		}
 	}
 
@@ -277,7 +277,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			}
 		} catch (err) {
 			await sendMessage("User not found");
-			App.log.warn(`Couldn't find user ${param}:`, err);
+			log.warn(`Couldn't find user ${param}:`, err);
 		}
 	}
 
@@ -301,7 +301,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			}
 		} catch (err) {
 			await sendMessage("User not found");
-			App.log.warn(`Couldn't find user ${param}:`, err);
+			log.warn(`Couldn't find user ${param}:`, err);
 		}
 	}
 }

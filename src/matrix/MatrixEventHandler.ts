@@ -11,9 +11,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-import { IRemoteRoom, IMessageEvent, ISendingUser, IFileEvent, Util } from "mx-puppet-bridge";
+import { IRemoteRoom, IMessageEvent, ISendingUser, IFileEvent, Util, Log } from "mx-puppet-bridge";
 import { App, IDiscordSendFile, MAXFILESIZE, AVATAR_SETTINGS } from "../app";
 import * as Discord from "better-discord.js";
+
+const log = new Log("DiscordPuppet:MatrixEventHandler");
 
 export class MatrixEventHandler {
 	public constructor(private readonly app) {}
@@ -25,7 +27,7 @@ export class MatrixEventHandler {
 		}
 		const chan = await this.app.getDiscordChan(p.client, room.roomId);
 		if (!chan) {
-			App.log.warn("Channel not found", room);
+			log.warn("Channel not found", room);
 			return;
 		}
 
@@ -36,7 +38,7 @@ export class MatrixEventHandler {
 			const reply = await this.app.sendToDiscord(chan, sendMsg, asUser);
 			await this.app.matrix.insertNewEventId(room.puppetId, data.eventId!, reply);
 		} catch (err) {
-			App.log.warn("Couldn't send message", err);
+			log.warn("Couldn't send message", err);
 			this.app.messageDeduplicator.unlock(lockKey);
 			await this.app.matrix.sendMessageFail(room);
 		}
@@ -49,7 +51,7 @@ export class MatrixEventHandler {
 		}
 		const chan = await this.app.discord.getDiscordChan(p.client, room.roomId);
 		if (!chan) {
-			App.log.warn("Channel not found", room);
+			log.warn("Channel not found", room);
 			return;
 		}
 
@@ -76,7 +78,7 @@ export class MatrixEventHandler {
 					return;
 				} catch (err) {
 					this.app.messageDeduplicator.unlock(lockKey);
-					App.log.warn("Couldn't send media message, retrying as embed/url", err);
+					log.warn("Couldn't send media message, retrying as embed/url", err);
 				}
 			}
 		}
@@ -96,7 +98,7 @@ export class MatrixEventHandler {
 				await this.app.matrix.insertNewEventId(room.puppetId, data.eventId!, reply);
 			}
 		} catch (err) {
-			App.log.warn("Couldn't send media message", err);
+			log.warn("Couldn't send media message", err);
 			this.app.messageDeduplicator.unlock(lockKey);
 			await this.app.matrix.sendMessageFail(room);
 		}
@@ -109,10 +111,10 @@ export class MatrixEventHandler {
 		}
 		const chan = await this.app.discord.getDiscordChan(p.client, room.roomId);
 		if (!chan) {
-			App.log.warn("Channel not foundp.client.user!.bot", room);
+			log.warn("Channel not foundp.client.user!.bot", room);
 			return;
 		}
-		App.log.verbose(`Deleting message with ID ${eventId}...`);
+		log.verbose(`Deleting message with ID ${eventId}...`);
 		const msg = await chan.messages.fetch(eventId);
 		if (!msg) {
 			return;
@@ -122,7 +124,7 @@ export class MatrixEventHandler {
 			await msg.delete();
 			await this.app.puppet.eventStore.remove(room.puppetId, msg.id);
 		} catch (err) {
-			App.log.warn("Couldn't delete message", err);
+			log.warn("Couldn't delete message", err);
 		}
 	}
 
@@ -139,10 +141,10 @@ export class MatrixEventHandler {
 		}
 		const chan = await this.app.discord.getDiscordChan(p.client, room.roomId);
 		if (!chan) {
-			App.log.warn("Channel not found", room);
+			log.warn("Channel not found", room);
 			return;
 		}
-		App.log.verbose(`Editing message with ID ${eventId}...`);
+		log.verbose(`Editing message with ID ${eventId}...`);
 		const msg = await chan.messages.fetch(eventId);
 		if (!msg) {
 			return;
@@ -165,7 +167,7 @@ export class MatrixEventHandler {
 						await msg.delete();
 						await this.app.puppet.eventStore.remove(room.puppetId, msg.id);
 					} catch (err) {
-						App.log.warn("Couldn't delete old message", err);
+						log.warn("Couldn't delete old message", err);
 					}
 				} else {
 					sendMsg = `**EDIT:** ${sendMsg}`;
@@ -176,7 +178,7 @@ export class MatrixEventHandler {
 			}
 			await this.app.matrix.insertNewEventId(room.puppetId, matrixEventId, reply);
 		} catch (err) {
-			App.log.warn("Couldn't edit message", err);
+			log.warn("Couldn't edit message", err);
 			this.app.messageDeduplicator.unlock(lockKey);
 			await this.app.matrix.sendMessageFail(room);
 		}
@@ -195,10 +197,10 @@ export class MatrixEventHandler {
 		}
 		const chan = await this.app.discord.getDiscordChan(p.client, room.roomId);
 		if (!chan) {
-			App.log.warn("Channel not found", room);
+			log.warn("Channel not found", room);
 			return;
 		}
-		App.log.verbose(`Replying to message with ID ${eventId}...`);
+		log.verbose(`Replying to message with ID ${eventId}...`);
 		const msg = await chan.messages.fetch(eventId);
 		if (!msg) {
 			return;
@@ -241,7 +243,7 @@ export class MatrixEventHandler {
 			}
 			await this.app.matrix.insertNewEventId(room.puppetId, data.eventId!, reply);
 		} catch (err) {
-			App.log.warn("Couldn't send reply", err);
+			log.warn("Couldn't send reply", err);
 			this.app.messageDeduplicator.unlock(lockKey);
 			await this.app.matrix.sendMessageFail(room);
 		}
@@ -260,10 +262,10 @@ export class MatrixEventHandler {
 		}
 		const chan = await this.app.discord.getDiscordChan(p.client, room.roomId);
 		if (!chan) {
-			App.log.warn("Channel not found", room);
+			log.warn("Channel not found", room);
 			return;
 		}
-		App.log.verbose(`Reacting to ${eventId} with ${reaction}...`);
+		log.verbose(`Reacting to ${eventId} with ${reaction}...`);
 		const msg = await chan.messages.fetch(eventId);
 		if (!msg) {
 			return;
@@ -291,10 +293,10 @@ export class MatrixEventHandler {
 		}
 		const chan = await this.app.discord.getDiscordChan(p.client, room.roomId);
 		if (!chan) {
-			App.log.warn("Channel not found", room);
+			log.warn("Channel not found", room);
 			return;
 		}
-		App.log.verbose(`Removing reaction to ${eventId} with ${reaction}...`);
+		log.verbose(`Removing reaction to ${eventId} with ${reaction}...`);
 		const msg = await chan.messages.fetch(eventId);
 		if (!msg) {
 			return;

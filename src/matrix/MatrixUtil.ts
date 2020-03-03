@@ -14,11 +14,13 @@ limitations under the License.
 import { App, AVATAR_SETTINGS } from "../app";
 import * as Discord from "better-discord.js";
 import { IStringFormatterVars, IRemoteUser, IRemoteRoom,
-	IRemoteGroup, IRemoteUserRoomOverride, IReceiveParams, IRetList,
+	IRemoteGroup, IRemoteUserRoomOverride, IReceiveParams, IRetList, Log,
 } from "mx-puppet-bridge";
 import * as escapeHtml from "escape-html";
 import { IMatrixMessageParserOpts } from "matrix-discord-parser";
 import { MatrixEventHandler } from "./MatrixEventHandler";
+
+const log = new Log("DiscordPuppet:MatrixUtil");
 
 export class MatrixUtil {
 	public readonly events: MatrixEventHandler;
@@ -344,7 +346,7 @@ export class MatrixUtil {
 				},
 				getEmoji: async (mxc: string, name: string) => {
 					const dbEmoji = await this.app.store.getEmojiByMxc(mxc);
-					App.log.info("Found emoji", dbEmoji);
+					log.info("Found emoji", dbEmoji);
 					if (!dbEmoji) {
 						return null;
 					}

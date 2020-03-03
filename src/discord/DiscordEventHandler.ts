@@ -13,7 +13,10 @@ limitations under the License.
 */
 import { App } from "../app";
 import * as Discord from "better-discord.js";
-import { IDiscordMessageParserOpts, DiscordMessageParser } from "matrix-discord-parser/lib/src/discordmessageparser";
+import { IDiscordMessageParserOpts, DiscordMessageParser } from "matrix-discord-parser";
+import { Log } from "mx-puppet-bridge";
+
+const log = new Log("DiscordPuppet:DiscordEventHandler");
 
 export class DiscordEventHandler {
 	private discordMsgParser: DiscordMessageParser;
@@ -30,9 +33,9 @@ export class DiscordEventHandler {
 		if (msg.type !== "DEFAULT") {
 			return;
 		}
-		App.log.info("Received new message!");
+		log.info("Received new message!");
 		if (!await this.app.bridgeRoom(puppetId, msg.channel)) {
-			App.log.info("Unhandled channel, dropping message...");
+			log.info("Unhandled channel, dropping message...");
 			return;
 		}
 		const params = this.app.matrix.getSendParams(puppetId, msg);
@@ -40,7 +43,7 @@ export class DiscordEventHandler {
 		const dedupeMsg = msg.attachments.first() ? `file:${msg.attachments.first()!.name}` : msg.content;
 		if (await this.app.messageDeduplicator.dedupe(lockKey, msg.author.id, msg.id, dedupeMsg)) {
 			// dedupe message
-			App.log.info("Deduping message, dropping...");
+			log.info("Deduping message, dropping...");
 			return;
 		}
 		if (msg.webhookID && msg.channel instanceof Discord.TextChannel) {
@@ -48,7 +51,7 @@ export class DiscordEventHandler {
 			try {
 				const hook = (await msg.channel.fetchWebhooks()).find((h) => h.name === "_matrix") || null;
 				if (hook && msg.webhookID === hook.id) {
-					App.log.info("Message sent from our webhook, deduping...");
+					log.info("Message sent from our webhook, deduping...");
 					return;
 				}
 			} catch (err) { } // no webhook permissions, ignore
@@ -89,7 +92,7 @@ export class DiscordEventHandler {
 			return;
 		}
 		if (!await this.app.bridgeRoom(puppetId, msg1.channel)) {
-			App.log.info("Unhandled channel, dropping message...");
+			log.info("Unhandled channel, dropping message...");
 			return;
 		}
 		const opts: IDiscordMessageParserOpts = {
@@ -128,7 +131,7 @@ export class DiscordEventHandler {
 			return;
 		}
 		if (!await this.app.bridgeRoom(puppetId, msg.channel)) {
-			App.log.info("Unhandled channel, dropping message...");
+			log.info("Unhandled channel, dropping message...");
 			return;
 		}
 		await this.app.puppet.sendRedact(params, msg.id);

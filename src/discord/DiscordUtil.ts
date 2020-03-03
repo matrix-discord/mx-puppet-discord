@@ -13,8 +13,10 @@ limitations under the License.
 import { App, IDiscordSendFile } from "../app";
 import * as Discord from "better-discord.js";
 import { DiscordEventHandler } from "./DiscordEventHandler";
-import { ISendingUser } from "mx-puppet-bridge";
+import { ISendingUser, Log } from "mx-puppet-bridge";
 import { IDiscordMessageParserCallbacks } from "matrix-discord-parser";
+
+const log = new Log("DiscordPuppet:DiscordUtil");
 
 export class DiscordUtil {
 	public readonly events: DiscordEventHandler;
@@ -60,7 +62,7 @@ export class DiscordUtil {
 		asUser: ISendingUser | null,
 		replyEmbed?: Discord.MessageEmbed,
 	): Promise<Discord.Message | Discord.Message[]> {
-		App.log.debug("Sending something to discord...");
+		log.debug("Sending something to discord...");
 		let sendThing: string | Discord.MessageAdditions;
 		if (typeof msg === "string" || msg instanceof Discord.MessageEmbed) {
 			sendThing = msg;
@@ -69,7 +71,7 @@ export class DiscordUtil {
 		}
 		if (!asUser) {
 			// we don't want to relay, so just send off nicely
-			App.log.debug("Not in relay mode, just sending as user");
+			log.debug("Not in relay mode, just sending as user");
 			if (replyEmbed && chan.client.user!.bot) {
 				return await chan.send(sendThing, replyEmbed);
 			}
@@ -77,7 +79,7 @@ export class DiscordUtil {
 		}
 		// alright, we have to send as if it was another user. First try webhooks.
 		if (chan instanceof Discord.TextChannel) {
-			App.log.debug("Trying to send as webhook...");
+			log.debug("Trying to send as webhook...");
 			let hook: Discord.Webhook | null = null;
 			try {
 				hook = (await chan.fetchWebhooks()).find((h) => h.name === "_matrix") || null;
@@ -87,11 +89,11 @@ export class DiscordUtil {
 							reason: "Allow bridging matrix messages to discord nicely",
 						});
 					} catch (err) {
-						App.log.warn("Unable to create \"_matrix\" webhook", err);
+						log.warn("Unable to create \"_matrix\" webhook", err);
 					}
 				}
 			} catch (err) {
-				App.log.warn("Missing webhook permissions", err);
+				log.warn("Missing webhook permissions", err);
 			}
 			if (hook) {
 				const hookOpts: Discord.WebhookMessageOptions & { split: true } = {
@@ -110,12 +112,12 @@ export class DiscordUtil {
 				}
 				return await hook.send(hookOpts);
 			}
-			App.log.debug("Couldn't send as webhook");
+			log.debug("Couldn't send as webhook");
 		}
 		// alright, we either weren't able to send as webhook or we aren't in a webhook-able channel.
 		// so.....let's try to send as embed next
 		if (chan.client.user!.bot) {
-			App.log.debug("Trying to send as embed...");
+			log.debug("Trying to send as embed...");
 			const embed = new Discord.MessageEmbed();
 			if (typeof msg === "string") {
 				embed.setDescription(msg);
@@ -139,7 +141,7 @@ export class DiscordUtil {
 			return await chan.send(embed);
 		}
 		// alright, nothing is working....let's prefix the displayname and send stuffs
-		App.log.debug("Prepending sender information to send the message out...");
+		log.debug("Prepending sender information to send the message out...");
 		const displayname = await this.discordEscape(asUser.displayname);
 		let sendMsg = "";
 		if (typeof msg === "string") {

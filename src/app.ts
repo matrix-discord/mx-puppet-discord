@@ -32,6 +32,7 @@ import { DiscordUtil } from "./discord/DiscordUtil";
 import { MatrixUtil } from "./matrix/MatrixUtil";
 import { Commands } from "./Commands";
 
+const log = new Log("DiscordPuppet:App");
 export const AVATAR_SETTINGS: Discord.ImageURLOptions & { dynamic?: boolean | undefined; }
 = { format: "png", size: 2048, dynamic: true };
 export const MAXFILESIZE = 8000000;
@@ -54,7 +55,6 @@ export interface IDiscordSendFile {
 }
 
 export class App {
-	public static readonly log = new Log("DiscordPuppet:Discord");
 	public puppets: IDiscordPuppets = {};
 	public discordMsgParser: DiscordMessageParser;
 	public matrixMsgParser: MatrixMessageParser;
@@ -92,7 +92,7 @@ export class App {
 		try {
 			await p.client.user!.setUsername(name);
 		} catch (err) {
-			App.log.warn(`Couldn't set name for ${puppetId}`, err);
+			log.warn(`Couldn't set name for ${puppetId}`, err);
 		}
 	}
 
@@ -107,12 +107,12 @@ export class App {
 			const buffer = await Util.DownloadFile(realUrl);
 			await p.client.user!.setAvatar(buffer);
 		} catch (err) {
-			App.log.warn(`Couldn't set avatar for ${puppetId}`, err);
+			log.warn(`Couldn't set avatar for ${puppetId}`, err);
 		}
 	}
 
 	public async newPuppet(puppetId: number, data: any) {
-		App.log.info(`Adding new Puppet: puppetId=${puppetId}`);
+		log.info(`Adding new Puppet: puppetId=${puppetId}`);
 		if (this.puppets[puppetId]) {
 			await this.deletePuppet(puppetId);
 		}
@@ -135,21 +135,21 @@ export class App {
 			try {
 				await this.discord.events.handleDiscordMessage(puppetId, msg);
 			} catch (err) {
-				App.log.error("Error handling discord message event", err.error || err.body || err);
+				log.error("Error handling discord message event", err.error || err.body || err);
 			}
 		});
 		client.on("messageUpdate", async (msg1: Discord.Message, msg2: Discord.Message) => {
 			try {
 				await this.discord.events.handleDiscordMessageUpdate(puppetId, msg1, msg2);
 			} catch (err) {
-				App.log.error("Error handling discord messageUpdate event", err.error || err.body || err);
+				log.error("Error handling discord messageUpdate event", err.error || err.body || err);
 			}
 		});
 		client.on("messageDelete", async (msg: Discord.Message) => {
 			try {
 				await this.discord.events.handleDiscordMessageDelete(puppetId, msg);
 			} catch (err) {
-				App.log.error("Error handling discord messageDelete event", err.error || err.body || err);
+				log.error("Error handling discord messageDelete event", err.error || err.body || err);
 			}
 		});
 		client.on("messageDeleteBulk", async (msgs: Discord.Collection<Discord.Snowflake, Discord.Message>) => {
@@ -157,7 +157,7 @@ export class App {
 				try {
 					await this.discord.events.handleDiscordMessageDelete(puppetId, msg);
 				} catch (err) {
-					App.log.error("Error handling one discord messageDeleteBulk event", err.error || err.body || err);
+					log.error("Error handling one discord messageDeleteBulk event", err.error || err.body || err);
 				}
 			}
 		});
@@ -166,7 +166,7 @@ export class App {
 				const params = this.matrix.getSendParams(puppetId, chan, user);
 				await this.puppet.setUserTyping(params, true);
 			} catch (err) {
-				App.log.error("Error handling discord typingStart event", err.error || err.body || err);
+				log.error("Error handling discord typingStart event", err.error || err.body || err);
 			}
 		});
 		client.on("typingStop", async (chan: Discord.Channel, user: Discord.User) => {
@@ -174,14 +174,14 @@ export class App {
 				const params = this.matrix.getSendParams(puppetId, chan, user);
 				await this.puppet.setUserTyping(params, false);
 			} catch (err) {
-				App.log.error("Error handling discord typingStop event", err.error || err.body || err);
+				log.error("Error handling discord typingStop event", err.error || err.body || err);
 			}
 		});
 		client.on("presenceUpdate", async (_, presence: Discord.Presence) => {
 			try {
 				await this.discord.updatePresence(puppetId, presence);
 			} catch (err) {
-				App.log.error("Error handling discord presenceUpdate event", err.error || err.body || err);
+				log.error("Error handling discord presenceUpdate event", err.error || err.body || err);
 			}
 		});
 		client.on("messageReactionAdd", async (reaction: Discord.MessageReaction, user: Discord.User) => {
@@ -199,7 +199,7 @@ export class App {
 					await this.puppet.sendReaction(params, reaction.message.id, reaction.emoji.name);
 				}
 			} catch (err) {
-				App.log.error("Error handling discord messageReactionAdd event", err.error || err.body || err);
+				log.error("Error handling discord messageReactionAdd event", err.error || err.body || err);
 			}
 		});
 		client.on("messageReactionRemove", async (reaction: Discord.MessageReaction, user: Discord.User) => {
@@ -217,7 +217,7 @@ export class App {
 					await this.puppet.removeReaction(params, reaction.message.id, reaction.emoji.name);
 				}
 			} catch (err) {
-				App.log.error("Error handling discord messageReactionRemove event", err.error || err.body || err);
+				log.error("Error handling discord messageReactionRemove event", err.error || err.body || err);
 			}
 		});
 		client.on("messageReactionRemoveAll", async (message: Discord.Message) => {
@@ -240,7 +240,7 @@ export class App {
 				const params = this.matrix.getSendParams(puppetId, chan, user);
 				await this.puppet.removeAllReactions(params, message.id);
 			} catch (err) {
-				App.log.error("Error handling discord messageReactionRemoveAll event", err.error || err.body || err);
+				log.error("Error handling discord messageReactionRemoveAll event", err.error || err.body || err);
 			}
 		});
 		client.on("channelUpdate", async (_, channel: Discord.Channel) => {
@@ -266,7 +266,7 @@ export class App {
 					await this.puppet.updateRoom(remoteChan);
 				}
 			} catch (err) {
-				App.log.error("Error handling discord guildUpdate event", err.error || err.body || err);
+				log.error("Error handling discord guildUpdate event", err.error || err.body || err);
 			}
 		});
 		client.on("relationshipAdd", async (_, relationship: Discord.Relationship) => {
@@ -287,7 +287,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 	}
 
 	public async deletePuppet(puppetId: number) {
-		App.log.info(`Got signal to quit Puppet: puppetId=${puppetId}`);
+		log.info(`Got signal to quit Puppet: puppetId=${puppetId}`);
 		const p = this.puppets[puppetId];
 		if (!p) {
 			return; // nothing to do
