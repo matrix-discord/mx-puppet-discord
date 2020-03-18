@@ -60,6 +60,7 @@ const protocol: IProtocolInformation = {
 		edit: true,
 		reply: true,
 		advancedRelay: true,
+		globalNamespace: true,
 	},
 	id: "discord",
 	displayname: "Discord",
@@ -198,6 +199,12 @@ Usage: \`bridgechannel <puppetId> <channelId>\``,
 		help: `Unbridge a channel
 
 Usage: \`unbridgechannel <puppetId> <channelId>\``,
+	});
+	puppet.registerCommand("bridgeall", {
+		fn: app.commands.commandBridgeAll.bind(app.commands),
+		help: `Bridge everything
+
+Usage: \`bridgeall <puppetId> <1/0>\``,
 	});
 	puppet.registerCommand("enablefriendsmanagement", {
 		fn: app.commands.commandEnableFriendsManagement.bind(app.commands),

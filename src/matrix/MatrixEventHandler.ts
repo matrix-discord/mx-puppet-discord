@@ -25,7 +25,7 @@ export class MatrixEventHandler {
 		if (!p) {
 			return;
 		}
-		const chan = await this.app.discord.getDiscordChan(p.client, room.roomId);
+		const chan = await this.app.discord.getDiscordChan(room);
 		if (!chan) {
 			log.warn("Channel not found", room);
 			return;
@@ -49,7 +49,7 @@ export class MatrixEventHandler {
 		if (!p) {
 			return;
 		}
-		const chan = await this.app.discord.getDiscordChan(p.client, room.roomId);
+		const chan = await this.app.discord.getDiscordChan(room);
 		if (!chan) {
 			log.warn("Channel not found", room);
 			return;
@@ -109,9 +109,9 @@ export class MatrixEventHandler {
 		if (!p) {
 			return;
 		}
-		const chan = await this.app.discord.getDiscordChan(p.client, room.roomId);
+		const chan = await this.app.discord.getDiscordChan(room);
 		if (!chan) {
-			log.warn("Channel not foundp.client.user!.bot", room);
+			log.warn("Channel not found", room);
 			return;
 		}
 		log.verbose(`Deleting message with ID ${eventId}...`);
@@ -122,7 +122,7 @@ export class MatrixEventHandler {
 		try {
 			p.deletedMessages.add(msg.id);
 			await msg.delete();
-			await this.app.puppet.eventStore.remove(room.puppetId, msg.id);
+			await this.app.puppet.eventSync.remove(room.puppetId, msg.id);
 		} catch (err) {
 			log.warn("Couldn't delete message", err);
 		}
@@ -139,7 +139,7 @@ export class MatrixEventHandler {
 		if (!p) {
 			return;
 		}
-		const chan = await this.app.discord.getDiscordChan(p.client, room.roomId);
+		const chan = await this.app.discord.getDiscordChan(room);
 		if (!chan) {
 			log.warn("Channel not found", room);
 			return;
@@ -160,12 +160,12 @@ export class MatrixEventHandler {
 				if (eventId === this.app.lastEventIds[chan.id]) {
 					try {
 						p.deletedMessages.add(msg.id);
-						const matrixEvents = await this.app.puppet.eventStore.getMatrix(room.puppetId, msg.id);
+						const matrixEvents = await this.app.puppet.eventSync.getMatrix(room.puppetId, msg.id);
 						if (matrixEvents.length > 0) {
 							matrixEventId = matrixEvents[0];
 						}
 						await msg.delete();
-						await this.app.puppet.eventStore.remove(room.puppetId, msg.id);
+						await this.app.puppet.eventSync.remove(room.puppetId, msg.id);
 					} catch (err) {
 						log.warn("Couldn't delete old message", err);
 					}
@@ -195,7 +195,7 @@ export class MatrixEventHandler {
 		if (!p) {
 			return;
 		}
-		const chan = await this.app.discord.getDiscordChan(p.client, room.roomId);
+		const chan = await this.app.discord.getDiscordChan(room);
 		if (!chan) {
 			log.warn("Channel not found", room);
 			return;
@@ -260,7 +260,7 @@ export class MatrixEventHandler {
 		if (!p || asUser) {
 			return;
 		}
-		const chan = await this.app.discord.getDiscordChan(p.client, room.roomId);
+		const chan = await this.app.discord.getDiscordChan(room);
 		if (!chan) {
 			log.warn("Channel not found", room);
 			return;
@@ -291,7 +291,7 @@ export class MatrixEventHandler {
 		if (!p || asUser) {
 			return;
 		}
-		const chan = await this.app.discord.getDiscordChan(p.client, room.roomId);
+		const chan = await this.app.discord.getDiscordChan(room);
 		if (!chan) {
 			log.warn("Channel not found", room);
 			return;

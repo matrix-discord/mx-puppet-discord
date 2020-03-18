@@ -192,6 +192,22 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		await sendMessage("Unbridged channel!");
 	}
 
+	public async commandBridgeAll(puppetId: number, param: string, sendMessage: SendMessageFn) {
+		const p = this.app.puppets[puppetId];
+		if (!p) {
+			await sendMessage("Puppet not found!");
+			return;
+		}
+		const bridgeAll = param === "1" || param.toLowerCase() === "true";
+		p.data.bridgeAll = bridgeAll;
+		await this.app.puppet.setPuppetData(puppetId, p.data);
+		if (bridgeAll) {
+			await sendMessage("Bridging everything now");
+		} else {
+			await sendMessage("Not bridging everything anymore");
+		}
+	}
+
 	public async commandEnableFriendsManagement(puppetId: number, param: string, sendMessage: SendMessageFn) {
 		const p = this.app.puppets[puppetId];
 		if (!p) {

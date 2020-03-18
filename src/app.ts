@@ -385,11 +385,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 	}
 
 	public async getUserIdsInRoom(room: IRemoteRoom): Promise<Set<string> | null> {
-		const p = this.puppets[room.puppetId];
-		if (!p) {
-			return null;
-		}
-		const chan = await this.discord.getDiscordChan(p.client, room.roomId);
+		const chan = await this.discord.getDiscordChan(room);
 		if (!chan) {
 			return null;
 		}
@@ -434,7 +430,13 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		if (["dm", "group"].includes(chan.type)) {
 			return true; // we handle all dm and group channels
 		}
-		if (chan instanceof Discord.TextChannel) {
+		if (!["text", "news"].includes(chan.type)) {
+			return false; // we only handle text and news things
+		}
+		if (this.puppets[puppetId] && this.puppets[puppetId].data.bridgeAll) {
+			return true; // we want to bridge everything anyways, no need to hit the store
+		}
+		if (chan instanceof Discord.TextChannel || chan instanceof Discord.NewsChannel) {
 			// we have a guild text channel, maybe we handle it!
 			if (await this.store.isGuildBridged(puppetId, chan.guild.id)) {
 				return true;

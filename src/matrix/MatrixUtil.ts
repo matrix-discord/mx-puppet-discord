@@ -38,7 +38,7 @@ export class MatrixUtil {
 		if (!u) {
 			return null;
 		}
-		return `dm-${u.id}`;
+		return `dm-${user.puppetId}-${u.id}`;
 	}
 
 	public async getEmojiMxc(name: string, animated: boolean, id: string): Promise<string | null> {
@@ -151,7 +151,7 @@ export class MatrixUtil {
 	public getRemoteRoom(puppetId: number, channel: Discord.Channel): IRemoteRoom {
 		let roomId = channel.id;
 		if (channel instanceof Discord.DMChannel) {
-			roomId = `dm-${channel.recipient.id}`;
+			roomId = `dm-${puppetId}-${channel.recipient.id}`;
 		}
 		const ret: IRemoteRoom = {
 			roomId,
@@ -176,16 +176,15 @@ export class MatrixUtil {
 		return ret;
 	}
 
-	public async getRemoteRoomById(puppetId: number, id: string): Promise<IRemoteRoom | null> {
-		const p = this.app.puppets[puppetId];
-		if (!p) {
-			return null;
-		}
-		const chan = await this.app.discord.getDiscordChan(p.client, id);
+	public async getRemoteRoomById(room: IRemoteRoom): Promise<IRemoteRoom | null> {
+		const chan = await this.app.discord.getDiscordChan(room);
 		if (!chan) {
 			return null;
 		}
-		return this.getRemoteRoom(puppetId, chan);
+		if (!await this.app.bridgeRoom(room.puppetId, chan)) {
+			return null;
+		}
+		return this.getRemoteRoom(room.puppetId, chan);
 	}
 
 	public async getRemoteGroup(puppetId: number, guild: Discord.Guild): Promise<IRemoteGroup> {
@@ -228,14 +227,14 @@ export class MatrixUtil {
 		}
 		for (const m of msgs) {
 			const lockKey = `${puppetId};${m.channel.id}`;
-			await this.app.puppet.eventStore.insert(puppetId, matrixId, m.id);
+			await this.app.puppet.eventSync.insert(puppetId, matrixId, m.id);
 			this.app.messageDeduplicator.unlock(lockKey, p.client.user!.id, m.id);
 			this.app.lastEventIds[m.channel.id] = m.id;
 		}
 	}
 
 	public async createRoom(chan: IRemoteRoom): Promise<IRemoteRoom | null> {
-		return await this.getRemoteRoomById(chan.puppetId, chan.roomId);
+		return await this.getRemoteRoomById(chan);
 	}
 
 	public async createUser(user: IRemoteUser): Promise<IRemoteUser | null> {
@@ -365,11 +364,7 @@ export class MatrixUtil {
 	}
 
 	public async sendMessageFail(room: IRemoteRoom) {
-		const p = this.app.puppets[room.puppetId];
-		if (!p) {
-			return;
-		}
-		const chan = await this.app.discord.getDiscordChan(p.client, room.roomId);
+		const chan = await this.app.discord.getDiscordChan(room);
 		if (!chan) {
 			return;
 		}

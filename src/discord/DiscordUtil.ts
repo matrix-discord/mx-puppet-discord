@@ -13,7 +13,7 @@ limitations under the License.
 import { App, IDiscordSendFile } from "../app";
 import * as Discord from "better-discord.js";
 import { DiscordEventHandler } from "./DiscordEventHandler";
-import { ISendingUser, Log } from "mx-puppet-bridge";
+import { ISendingUser, Log, IRemoteRoom } from "mx-puppet-bridge";
 import { IDiscordMessageParserCallbacks } from "matrix-discord-parser";
 
 const log = new Log("DiscordPuppet:DiscordUtil");
@@ -26,8 +26,14 @@ export class DiscordUtil {
 	}
 
 	public async getDiscordChan(
-		client: Discord.Client, id: string,
+		room: IRemoteRoom,
 	): Promise<Discord.DMChannel | Discord.TextChannel | Discord.GroupDMChannel | null> {
+		const p = this.app.puppets[room.puppetId];
+		if (!p) {
+			return null;
+		}
+		const id = room.roomId;
+		const client = p.client;
 		if (!id.startsWith("dm-")) {
 			// first fetch from the client channel cache
 			const chan = client.channels.get(id);
@@ -46,7 +52,12 @@ export class DiscordUtil {
 			return null; // nothing found
 		} else {
 			// we have a DM channel
-			const lookupId = id.substring("dm-".length);
+			const parts = id.split("-");
+			if (Number(parts[1]) !== room.puppetId) {
+				return null;
+			}
+			const PART_USERID = 2;
+			const lookupId = parts[PART_USERID];
 			const user = await this.getUserById(client, lookupId);
 			if (!user) {
 				return null;
@@ -234,12 +245,13 @@ export class DiscordUtil {
 				};
 			},
 			getChannel: async (id: string) => {
-				const mxid = await this.app.puppet.getMxidForRoom({
+				const room: IRemoteRoom = {
 					puppetId,
 					roomId: id,
-				});
+				};
+				const mxid = await this.app.puppet.getMxidForRoom(room);
 				let name = mxid;
-				const chan = await this.getDiscordChan(p.client, id);
+				const chan = await this.getDiscordChan(room);
 				if (chan && !(chan instanceof Discord.DMChannel)) {
 					name = chan.name || "";
 				}

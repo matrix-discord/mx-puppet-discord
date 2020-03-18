@@ -13,7 +13,7 @@ limitations under the License.
 
 import { Store } from "mx-puppet-bridge";
 
-const CURRENT_SCHEMA = 3;
+const CURRENT_SCHEMA = 4;
 
 export class IDbEmoji {
 	public emojiId: string;
