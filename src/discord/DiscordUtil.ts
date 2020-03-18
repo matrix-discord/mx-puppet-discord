@@ -328,11 +328,14 @@ export class DiscordUtil {
 				return user;
 			}
 		}
-		{
+		try {
 			const user = await client.users.fetch(id);
 			if (user) {
 				return user;
 			}
+		} catch (err) {
+			// user not found
+			return null;
 		}
 		return null;
 	}
