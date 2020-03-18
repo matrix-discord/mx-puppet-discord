@@ -331,14 +331,14 @@ export class MatrixUtil {
 				canNotifyRoom: async () => true,
 				getUserId: async (mxid: string) => {
 					const parts = this.app.puppet.userSync.getPartsFromMxid(mxid);
-					if (!parts || parts.puppetId !== puppetId) {
+					if (!parts || (parts.puppetId !== puppetId && parts.puppetId !== -1)) {
 						return null;
 					}
 					return parts.userId;
 				},
 				getChannelId: async (mxid: string) => {
 					const parts = await this.app.puppet.roomSync.getPartsFromMxid(mxid);
-					if (!parts || parts.puppetId !== puppetId) {
+					if (!parts || (parts.puppetId !== puppetId && parts.puppetId !== -1)) {
 						return null;
 					}
 					return parts.roomId;
