@@ -282,9 +282,10 @@ export class DiscordUtil {
 		const bridgedGuilds = await this.app.store.getBridgedGuilds(puppetId);
 		const bridgedChannels = await this.app.store.getBridgedChannels(puppetId);
 		const client = guild.client;
+		const bridgeAll = Boolean(this.app.puppets[puppetId] && this.app.puppets[puppetId].data.bridgeAll);
 		// first we iterate over the non-sorted channels
 		for (const chan of guild.channels.array()) {
-			if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id)) {
+			if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id) && !bridgeAll) {
 				continue;
 			}
 			if (!chan.parentID && chan instanceof Discord.TextChannel && chan.members.has(client.user!.id)) {
@@ -299,7 +300,7 @@ export class DiscordUtil {
 			if (cat.members.has(client.user!.id)) {
 				let doCat = false;
 				for (const chan of cat.children.array()) {
-					if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id)) {
+					if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id) && !bridgeAll) {
 						continue;
 					}
 					if (chan instanceof Discord.TextChannel && chan.members.has(client.user!.id)) {
