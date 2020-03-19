@@ -322,8 +322,8 @@ export class DiscordUtil {
 				return a.user;
 			}
 		}
-		{
-			const user = client.user!.relationships.friends.get(id);
+		if (client.user) {
+			const user = client.user.relationships.friends.get(id);
 			if (user) {
 				return user;
 			}
@@ -335,7 +335,6 @@ export class DiscordUtil {
 			}
 		} catch (err) {
 			// user not found
-			return null;
 		}
 		return null;
 	}
