@@ -200,7 +200,7 @@ export class DiscordUtil {
 		let statusMsg = "";
 		for (const activity of presence.activities) {
 			if (statusMsg !== "") {
-				return;
+				break;
 			}
 			const statusParts: string[] = [];
 			if (activity.type !== "CUSTOM_STATUS") {
