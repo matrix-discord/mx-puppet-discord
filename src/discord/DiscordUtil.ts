@@ -206,8 +206,12 @@ export class DiscordUtil {
 			if (activity.type !== "CUSTOM_STATUS") {
 				const lower = activity.type.toLowerCase();
 				statusParts.push(lower.charAt(0).toUpperCase() + lower.substring(1));
-				if (activity.name) {
-					statusParts.push(activity.name);
+				if (activity.type === "LISTENING") {
+					statusParts.push(` to ${activity.details} by ${activity.state}`);
+				} else {
+					if (activity.name) {
+						statusParts.push(activity.name);
+					}
 				}
 			} else {
 				if (activity.emoji) {
