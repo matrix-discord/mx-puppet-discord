@@ -14,6 +14,7 @@ limitations under the License.
 import { App } from "./app";
 import { SendMessageFn, Log } from "mx-puppet-bridge";
 import * as Discord from "better-discord.js";
+import { BridgeableGuildChannel } from "./discord/DiscordUtil";
 
 const log = new Log("DiscordPuppet:Commands");
 const MAX_MSG_SIZE = 4000;
@@ -54,11 +55,12 @@ export class Commands {
 			return;
 		}
 		for (const chan of guild.channels.array()) {
-			if (chan.type !== "text") {
+			if (!this.app.discord.isBridgeableGuildChannel(chan)) {
 				continue;
 			}
-			if (chan.members.has(p.client.user!.id)) {
-				const remoteChan = this.app.matrix.getRemoteRoom(puppetId, chan);
+			const gchan = chan as BridgeableGuildChannel;
+			if (gchan.members.has(p.client.user!.id)) {
+				const remoteChan = this.app.matrix.getRemoteRoom(puppetId, gchan);
 				await this.app.puppet.bridgeRoom(remoteChan);
 			}
 		}
@@ -159,11 +161,11 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			await sendMessage("Puppet not found!");
 			return;
 		}
-		let channel: Discord.TextChannel | undefined;
+		let channel: BridgeableGuildChannel | undefined;
 		let guild: Discord.Guild | undefined;
 		for (const g of p.client.guilds.array()) {
-			channel = g.channels.get(param) as Discord.TextChannel;
-			if (channel && channel.type === "text") {
+			channel = g.channels.get(param) as BridgeableGuildChannel;
+			if (this.app.discord.isBridgeableGuildChannel(channel)) {
 				guild = g;
 				break;
 			}

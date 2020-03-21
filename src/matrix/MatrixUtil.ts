@@ -19,6 +19,7 @@ import { IStringFormatterVars, IRemoteUser, IRemoteRoom,
 import * as escapeHtml from "escape-html";
 import { IMatrixMessageParserOpts } from "matrix-discord-parser";
 import { MatrixEventHandler } from "./MatrixEventHandler";
+import { TextGuildChannel, TextChannel, BridgeableGuildChannel, BridgeableChannel } from "../discord/DiscordUtil";
 
 const log = new Log("DiscordPuppet:MatrixUtil");
 
@@ -63,47 +64,45 @@ export class MatrixUtil {
 
 	public getSendParams(
 		puppetId: number,
-		msgOrChannel: Discord.Message | Discord.Channel,
+		msgOrChannel: Discord.Message | BridgeableChannel,
 		user?: Discord.User | Discord.GuildMember,
 	): IReceiveParams {
-		let channel: Discord.Channel;
+		let channel: BridgeableChannel;
 		let eventId: string | undefined;
 		let externalUrl: string | undefined;
 		let isWebhook = false;
-		let textChannel: Discord.TextChannel | undefined;
+		let guildChannel: BridgeableGuildChannel | undefined;
 		if (!user) {
 			const msg = msgOrChannel as Discord.Message;
 			channel = msg.channel;
 			user = msg.member || msg.author;
 			eventId = msg.id;
 			isWebhook = msg.webhookID ? true : false;
-			if (channel instanceof Discord.TextChannel) {
-				textChannel = channel;
-				externalUrl = `https://discordapp.com/channels/${channel.guild.id}/${channel.id}/${eventId}`;
+			if (this.app.discord.isBridgeableGuildChannel(channel)) {
+				guildChannel = channel as BridgeableGuildChannel;
+				externalUrl = `https://discordapp.com/channels/${guildChannel.guild.id}/${guildChannel.id}/${eventId}`;
 			} else if (["group", "dm"].includes(channel.type)) {
 				externalUrl = `https://discordapp.com/channels/@me/${channel.id}/${eventId}`;
 			}
 		} else {
-			channel = msgOrChannel as Discord.Channel;
+			channel = msgOrChannel as BridgeableChannel;
 		}
 		return {
 			room: this.getRemoteRoom(puppetId, channel),
-			user: this.getRemoteUser(puppetId, user, isWebhook, textChannel),
+			user: this.getRemoteUser(puppetId, user, isWebhook, guildChannel),
 			eventId,
 			externalUrl,
 		};
 	}
 
-	public getRemoteUserRoomOverride(member: Discord.GuildMember, chan: Discord.Channel): IRemoteUserRoomOverride {
+	public getRemoteUserRoomOverride(member: Discord.GuildMember, chan: BridgeableGuildChannel): IRemoteUserRoomOverride {
 		const nameVars: IStringFormatterVars = {
 			name: member.user.username,
 			discriminator: member.user.discriminator,
 			displayname: member.displayName,
+			channel: chan.name,
+			guild: chan.guild.name,
 		};
-		if (chan instanceof Discord.TextChannel) {
-			nameVars.channel = chan.name;
-			nameVars.guild = chan.guild.name;
-		}
 		return {
 			nameVars,
 		};
@@ -113,7 +112,7 @@ export class MatrixUtil {
 		puppetId: number,
 		userOrMember: Discord.User | Discord.GuildMember,
 		isWebhook: boolean = false,
-		chan?: Discord.TextChannel,
+		chan?: BridgeableGuildChannel,
 	): IRemoteUser {
 		let user: Discord.User;
 		let member: Discord.GuildMember | null = null;
@@ -139,8 +138,8 @@ export class MatrixUtil {
 				response.roomOverrides[chan.id] = this.getRemoteUserRoomOverride(member, chan);
 			} else {
 				for (const gchan of member.guild.channels.array()) {
-					if (gchan.type === "text") {
-						response.roomOverrides[gchan.id] = this.getRemoteUserRoomOverride(member, gchan);
+					if (this.app.discord.isBridgeableGuildChannel(gchan)) {
+						response.roomOverrides[gchan.id] = this.getRemoteUserRoomOverride(member, gchan as BridgeableGuildChannel);
 					}
 				}
 			}
@@ -148,7 +147,7 @@ export class MatrixUtil {
 		return response;
 	}
 
-	public getRemoteRoom(puppetId: number, channel: Discord.Channel): IRemoteRoom {
+	public getRemoteRoom(puppetId: number, channel: BridgeableChannel): IRemoteRoom {
 		let roomId = channel.id;
 		if (channel instanceof Discord.DMChannel) {
 			roomId = `dm-${puppetId}-${channel.recipient.id}`;
@@ -164,14 +163,15 @@ export class MatrixUtil {
 			};
 			ret.avatarUrl = channel.iconURL(AVATAR_SETTINGS);
 		}
-		if (channel instanceof Discord.TextChannel) {
+		if (this.app.discord.isBridgeableGuildChannel(channel)) {
+			const gchan = channel as BridgeableGuildChannel;
 			ret.nameVars = {
-				name: channel.name,
-				guild: channel.guild.name,
+				name: gchan.name,
+				guild: gchan.guild.name,
 			};
-			ret.avatarUrl = channel.guild.iconURL(AVATAR_SETTINGS);
-			ret.groupId = channel.guild.id;
-			ret.topic = channel.topic;
+			ret.avatarUrl = gchan.guild.iconURL(AVATAR_SETTINGS);
+			ret.groupId = gchan.guild.id;
+			ret.topic = gchan.topic;
 		}
 		return ret;
 	}
@@ -196,7 +196,7 @@ export class MatrixUtil {
 				const name = escapeHtml(cat.name);
 				description += `</ul><h3>${name}</h3><ul>`;
 			},
-			async (chan: Discord.TextChannel) => {
+			async (chan: BridgeableGuildChannel) => {
 				roomIds.push(chan.id);
 				const mxid = await this.app.puppet.getMxidForRoom({
 					puppetId,
@@ -255,8 +255,8 @@ export class MatrixUtil {
 			const member = guild.members.get(u.id);
 			if (member) {
 				for (const chan of guild.channels.array()) {
-					if (chan.type === "text") {
-						remoteUser.roomOverrides[chan.id] = this.getRemoteUserRoomOverride(member, chan);
+					if (this.app.discord.isBridgeableGuildChannel(chan)) {
+						remoteUser.roomOverrides[chan.id] = this.getRemoteUserRoomOverride(member, chan as BridgeableGuildChannel);
 					}
 				}
 			}
@@ -295,7 +295,7 @@ export class MatrixUtil {
 						name: `${guild.name} - ${cat.name}`,
 					});
 				},
-				async (chan: Discord.TextChannel) => {
+				async (chan: BridgeableGuildChannel) => {
 					if (!didGuild && !didCat) {
 						didGuild = true;
 						retGuilds.push({
@@ -381,10 +381,11 @@ export class MatrixUtil {
 				name = names.join(", ");
 			}
 			msg = `Failed to send message into Group DM ${name}`;
-		} else if (chan instanceof Discord.TextChannel) {
-			msg = `Failed to send message into channel ${chan.name} of guild ${chan.guild.name}`;
+		} else if (this.app.discord.isBridgeableGuildChannel(chan)) {
+			const gchan = chan as BridgeableGuildChannel;
+			msg = `Failed to send message into channel ${gchan.name} of guild ${gchan.guild.name}`;
 		} else {
-			msg = `Failed to send message into channel with id \`${(chan as Discord.Channel).id}\``;
+			msg = `Failed to send message into channel with id \`${chan.id}\``;
 		}
 		await this.app.puppet.sendStatusMessage(room, msg);
 	}

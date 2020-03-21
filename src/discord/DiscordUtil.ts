@@ -18,6 +18,12 @@ import { IDiscordMessageParserCallbacks } from "matrix-discord-parser";
 
 const log = new Log("DiscordPuppet:DiscordUtil");
 
+export type TextGuildChannel = Discord.TextChannel | Discord.NewsChannel;
+export type TextChannel = TextGuildChannel | Discord.DMChannel | Discord.GroupDMChannel;
+
+export type BridgeableGuildChannel = Discord.TextChannel | Discord.NewsChannel;
+export type BridgeableChannel = BridgeableGuildChannel | Discord.DMChannel | Discord.GroupDMChannel;
+
 export class DiscordUtil {
 	public readonly events: DiscordEventHandler;
 
@@ -27,7 +33,7 @@ export class DiscordUtil {
 
 	public async getDiscordChan(
 		room: IRemoteRoom,
-	): Promise<Discord.DMChannel | Discord.TextChannel | Discord.GroupDMChannel | null> {
+	): Promise<BridgeableChannel | null> {
 		const p = this.app.puppets[room.puppetId];
 		if (!p) {
 			return null;
@@ -37,16 +43,14 @@ export class DiscordUtil {
 		if (!id.startsWith("dm-")) {
 			// first fetch from the client channel cache
 			const chan = client.channels.get(id);
-			if (chan) {
-				if (chan instanceof Discord.GroupDMChannel || chan instanceof Discord.TextChannel) {
-					return chan;
-				}
+			if (this.isBridgeableChannel(chan)) {
+				return chan as BridgeableChannel;
 			}
 			// next iterate over all the guild channels
 			for (const guild of client.guilds.array()) {
 				const c = guild.channels.get(id);
-				if (c && c instanceof Discord.TextChannel) {
-					return c;
+				if (this.isBridgeableChannel(c)) {
+					return c as BridgeableChannel;
 				}
 			}
 			return null; // nothing found
@@ -68,7 +72,7 @@ export class DiscordUtil {
 	}
 
 	public async sendToDiscord(
-		chan: Discord.TextChannel | Discord.DMChannel | Discord.GroupDMChannel,
+		chan: TextChannel,
 		msg: string | Discord.MessageEmbed | IDiscordSendFile,
 		asUser: ISendingUser | null,
 		replyEmbed?: Discord.MessageEmbed,
@@ -89,7 +93,8 @@ export class DiscordUtil {
 			return await chan.send(sendThing);
 		}
 		// alright, we have to send as if it was another user. First try webhooks.
-		if (chan instanceof Discord.TextChannel) {
+		if (this.isTextGuildChannel(chan)) {
+			chan = chan as TextGuildChannel;
 			log.debug("Trying to send as webhook...");
 			let hook: Discord.Webhook | null = null;
 			try {
@@ -281,7 +286,7 @@ export class DiscordUtil {
 		puppetId: number,
 		guild: Discord.Guild,
 		catCallback: (cat: Discord.CategoryChannel) => Promise<void>,
-		chanCallback: (chan: Discord.TextChannel) => Promise<void>,
+		chanCallback: (chan: BridgeableGuildChannel) => Promise<void>,
 	) {
 		const bridgedGuilds = await this.app.store.getBridgedGuilds(puppetId);
 		const bridgedChannels = await this.app.store.getBridgedChannels(puppetId);
@@ -292,8 +297,8 @@ export class DiscordUtil {
 			if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id) && !bridgeAll) {
 				continue;
 			}
-			if (!chan.parentID && chan instanceof Discord.TextChannel && chan.members.has(client.user!.id)) {
-				await chanCallback(chan);
+			if (!chan.parentID && this.isBridgeableGuildChannel(chan) && chan.members.has(client.user!.id)) {
+				await chanCallback(chan as BridgeableGuildChannel);
 			}
 		}
 		// next we iterate over the categories and all their children
@@ -307,12 +312,12 @@ export class DiscordUtil {
 					if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id) && !bridgeAll) {
 						continue;
 					}
-					if (chan instanceof Discord.TextChannel && chan.members.has(client.user!.id)) {
+					if (this.isBridgeableGuildChannel(chan) && chan.members.has(client.user!.id)) {
 						if (!doCat) {
 							doCat = true;
 							await catCallback(cat);
 						}
-						await chanCallback(chan);
+						await chanCallback(chan as BridgeableGuildChannel);
 					}
 				}
 			}
@@ -341,5 +346,21 @@ export class DiscordUtil {
 			// user not found
 		}
 		return null;
+	}
+
+	public isTextGuildChannel(chan?: Discord.Channel | null): boolean {
+		return Boolean(chan && ["text", "news"].includes(chan.type));
+	}
+
+	public isTextChannel(chan?: Discord.Channel | null): boolean {
+		return Boolean(chan && ["text", "news", "dm", "group"].includes(chan.type));
+	}
+
+	public isBridgeableGuildChannel(chan?: Discord.Channel | null): boolean {
+		return Boolean(chan && ["text", "news"].includes(chan.type));
+	}
+
+	public isBridgeableChannel(chan?: Discord.Channel | null): boolean {
+		return Boolean(chan && ["text", "news", "dm", "group"].includes(chan.type));
 	}
 }

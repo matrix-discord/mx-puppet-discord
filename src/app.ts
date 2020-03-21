@@ -29,7 +29,9 @@ import {
 import * as path from "path";
 import * as mime from "mime";
 import { DiscordStore } from "./store";
-import { DiscordUtil } from "./discord/DiscordUtil";
+import {
+	DiscordUtil, TextGuildChannel, TextChannel, BridgeableGuildChannel, BridgeableChannel,
+} from "./discord/DiscordUtil";
 import { MatrixUtil } from "./matrix/MatrixUtil";
 import { Commands } from "./Commands";
 
@@ -164,7 +166,10 @@ export class App {
 		});
 		client.on("typingStart", async (chan: Discord.Channel, user: Discord.User) => {
 			try {
-				const params = this.matrix.getSendParams(puppetId, chan, user);
+				if (!this.discord.isBridgeableChannel(chan)) {
+					return;
+				}
+				const params = this.matrix.getSendParams(puppetId, chan as BridgeableChannel, user);
 				await this.puppet.setUserTyping(params, true);
 			} catch (err) {
 				log.error("Error handling discord typingStart event", err.error || err.body || err);
@@ -172,7 +177,10 @@ export class App {
 		});
 		client.on("typingStop", async (chan: Discord.Channel, user: Discord.User) => {
 			try {
-				const params = this.matrix.getSendParams(puppetId, chan, user);
+				if (!this.discord.isBridgeableChannel(chan)) {
+					return;
+				}
+				const params = this.matrix.getSendParams(puppetId, chan as BridgeableChannel, user);
 				await this.puppet.setUserTyping(params, false);
 			} catch (err) {
 				log.error("Error handling discord typingStop event", err.error || err.body || err);
@@ -229,8 +237,9 @@ export class App {
 				}
 				// alright, let's fetch *an* admin user
 				let user: Discord.User;
-				if (chan instanceof Discord.TextChannel) {
-					user = chan.guild.owner ? chan.guild.owner.user : client.user!;
+				if (this.discord.isBridgeableGuildChannel(chan)) {
+					const gchan = chan as BridgeableGuildChannel;
+					user = gchan.guild.owner ? gchan.guild.owner.user : client.user!;
 				} else if (chan instanceof Discord.DMChannel) {
 					user = chan.recipient;
 				} else if (chan instanceof Discord.GroupDMChannel) {
@@ -244,8 +253,11 @@ export class App {
 				log.error("Error handling discord messageReactionRemoveAll event", err.error || err.body || err);
 			}
 		});
-		client.on("channelUpdate", async (_, channel: Discord.Channel) => {
-			const remoteChan = this.matrix.getRemoteRoom(puppetId, channel);
+		client.on("channelUpdate", async (_, chan: Discord.Channel) => {
+			if (!this.discord.isBridgeableChannel(chan)) {
+				return;
+			}
+			const remoteChan = this.matrix.getRemoteRoom(puppetId, chan as BridgeableChannel);
 			await this.puppet.updateRoom(remoteChan);
 		});
 		client.on("guildMemberUpdate", async (oldMember: Discord.GuildMember, newMember: Discord.GuildMember) => {
@@ -257,16 +269,17 @@ export class App {
 				})());
 			}
 			// aaaand check for role change
-			const leaveRooms = new Set<Discord.TextChannel>();
-			const joinRooms = new Set<Discord.TextChannel>();
+			const leaveRooms = new Set<BridgeableGuildChannel>();
+			const joinRooms = new Set<BridgeableGuildChannel>();
 			for (const chan of newMember.guild.channels.array()) {
-				if (!(chan instanceof Discord.TextChannel)) {
+				if (!this.discord.isBridgeableGuildChannel(chan)) {
 					continue;
 				}
-				if (chan.members.has(newMember.id)) {
-					joinRooms.add(chan);
+				const gchan = chan as BridgeableGuildChannel;
+				if (gchan.members.has(newMember.id)) {
+					joinRooms.add(gchan);
 				} else {
-					leaveRooms.add(chan);
+					leaveRooms.add(gchan);
 				}
 			}
 			for (const chan of leaveRooms) {
@@ -292,7 +305,10 @@ export class App {
 				const remoteGroup = await this.matrix.getRemoteGroup(puppetId, guild);
 				await this.puppet.updateGroup(remoteGroup);
 				for (const chan of guild.channels.array()) {
-					const remoteChan = this.matrix.getRemoteRoom(puppetId, chan);
+					if (!this.discord.isBridgeableGuildChannel(chan)) {
+						return;
+					}
+					const remoteChan = this.matrix.getRemoteRoom(puppetId, chan as BridgeableGuildChannel);
 					await this.puppet.updateRoom(remoteChan);
 				}
 			} catch (err) {
@@ -312,7 +328,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			for (const chan of member.guild.channels.array()) {
 				if ((await this.bridgeRoom(puppetId, chan)) && chan.members.has(member.id)) {
 					promiseList.push((async () => {
-						const params = this.matrix.getSendParams(puppetId, chan, member);
+						const params = this.matrix.getSendParams(puppetId, chan as BridgeableGuildChannel, member);
 						await this.puppet.addUser(params);
 					})());
 				}
@@ -322,10 +338,12 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		client.on("guildMemberRemove", async (member: Discord.GuildMember) => {
 			const promiseList: Promise<void>[] = [];
 			for (const chan of member.guild.channels.array()) {
-				promiseList.push((async () => {
-					const params = this.matrix.getSendParams(puppetId, chan, member);
-					await this.puppet.removeUser(params);
-				})());
+				if (this.discord.isBridgeableGuildChannel(chan)) {
+					promiseList.push((async () => {
+						const params = this.matrix.getSendParams(puppetId, chan as BridgeableGuildChannel, member);
+						await this.puppet.removeUser(params);
+					})());
+				}
 			}
 			await Promise.all(promiseList);
 		});
@@ -400,9 +418,10 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			}
 			return users;
 		}
-		if (chan instanceof Discord.TextChannel) {
+		if (this.discord.isBridgeableGuildChannel(chan)) {
 			// chan.members already does a permission check, yay!
-			for (const member of chan.members.array()) {
+			const gchan = chan as BridgeableGuildChannel;
+			for (const member of gchan.members.array()) {
 				users.add(member.id);
 			}
 			return users;
@@ -430,19 +449,20 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		if (["dm", "group"].includes(chan.type)) {
 			return true; // we handle all dm and group channels
 		}
-		if (!["text", "news"].includes(chan.type)) {
+		if (!this.discord.isBridgeableChannel(chan)) {
 			return false; // we only handle text and news things
 		}
 		if (this.puppets[puppetId] && this.puppets[puppetId].data.bridgeAll) {
 			return true; // we want to bridge everything anyways, no need to hit the store
 		}
-		if (chan instanceof Discord.TextChannel || chan instanceof Discord.NewsChannel) {
+		if (this.discord.isBridgeableGuildChannel(chan)) {
 			// we have a guild text channel, maybe we handle it!
-			if (await this.store.isGuildBridged(puppetId, chan.guild.id)) {
+			const gchan = chan as BridgeableGuildChannel;
+			if (await this.store.isGuildBridged(puppetId, gchan.guild.id)) {
 				return true;
 			}
 			// maybe it is a single channel override?
-			return await this.store.isChannelBridged(puppetId, chan.id);
+			return await this.store.isChannelBridged(puppetId, gchan.id);
 		}
 		return false;
 	}

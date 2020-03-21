@@ -15,6 +15,7 @@ import { App } from "../app";
 import * as Discord from "better-discord.js";
 import { IDiscordMessageParserOpts, DiscordMessageParser } from "matrix-discord-parser";
 import { Log } from "mx-puppet-bridge";
+import { TextGuildChannel } from "./DiscordUtil";
 
 const log = new Log("DiscordPuppet:DiscordEventHandler");
 
@@ -46,10 +47,11 @@ export class DiscordEventHandler {
 			log.info("Deduping message, dropping...");
 			return;
 		}
-		if (msg.webhookID && msg.channel instanceof Discord.TextChannel) {
+		if (msg.webhookID && this.app.discord.isTextGuildChannel(msg.channel)) {
 			// maybe we are a webhook from our webhook?
+			const chan = msg.channel as TextGuildChannel;
 			try {
-				const hook = (await msg.channel.fetchWebhooks()).find((h) => h.name === "_matrix") || null;
+				const hook = (await chan.fetchWebhooks()).find((h) => h.name === "_matrix") || null;
 				if (hook && msg.webhookID === hook.id) {
 					log.info("Message sent from our webhook, deduping...");
 					return;
