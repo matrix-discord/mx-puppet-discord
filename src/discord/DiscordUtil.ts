@@ -212,7 +212,7 @@ export class DiscordUtil {
 				const lower = activity.type.toLowerCase();
 				statusParts.push(lower.charAt(0).toUpperCase() + lower.substring(1));
 				if (activity.type === "LISTENING") {
-					statusParts.push(` to ${activity.details} by ${activity.state}`);
+					statusParts.push(`to ${activity.details} by ${activity.state}`);
 				} else {
 					if (activity.name) {
 						statusParts.push(activity.name);
