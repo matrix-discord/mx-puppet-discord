@@ -18,7 +18,6 @@ import {
 	Util,
 	IRetList,
 	MessageDeduplicator,
-	ExpireSet,
 	IRemoteRoom,
 } from "mx-puppet-bridge";
 import * as Discord from "better-discord.js";
@@ -34,6 +33,7 @@ import {
 } from "./discord/DiscordUtil";
 import { MatrixUtil } from "./matrix/MatrixUtil";
 import { Commands } from "./Commands";
+import ExpireSet from "expire-set";
 
 const log = new Log("DiscordPuppet:App");
 export const AVATAR_SETTINGS: Discord.ImageURLOptions & { dynamic?: boolean | undefined; }

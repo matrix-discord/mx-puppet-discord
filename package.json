@@ -16,10 +16,11 @@
     "command-line-usage": "^5.0.5",
     "escape-html": "^1.0.3",
     "events": "^3.0.0",
+    "expire-set": "^1.0.0",
     "js-yaml": "^3.13.1",
     "matrix-discord-parser": "0.0.7",
     "mime": "^2.4.4",
-    "mx-puppet-bridge": "0.0.35",
+    "mx-puppet-bridge": "0.0.35-5",
     "path": "^0.12.7",
     "tslint": "^5.17.0",
     "typescript": "^3.7.4"
