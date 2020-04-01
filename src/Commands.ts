@@ -164,7 +164,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		let channel: BridgeableGuildChannel | undefined;
 		let guild: Discord.Guild | undefined;
 		for (const g of p.client.guilds.array()) {
-			channel = g.channels.get(param) as BridgeableGuildChannel;
+			channel = g.channels.resolve(param) as BridgeableGuildChannel;
 			if (this.app.discord.isBridgeableGuildChannel(channel)) {
 				guild = g;
 				break;

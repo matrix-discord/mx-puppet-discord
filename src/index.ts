@@ -61,6 +61,7 @@ const protocol: IProtocolInformation = {
 		reply: true,
 		advancedRelay: true,
 		globalNamespace: true,
+		typingTimeout: 10 * 1000,
 	},
 	id: "discord",
 	displayname: "Discord",
