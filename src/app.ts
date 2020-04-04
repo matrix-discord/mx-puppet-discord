@@ -130,7 +130,7 @@ export class App {
 			await this.puppet.sendStatusMessage(puppetId, "connected");
 			await this.updateUserInfo(puppetId);
 			// set initial presence for everyone
-			for (const user of client.users.array()) {
+			for (const user of client.users.cache.array()) {
 				await this.discord.updatePresence(puppetId, user.presence);
 			}
 		});
@@ -173,17 +173,6 @@ export class App {
 				await this.puppet.setUserTyping(params, true);
 			} catch (err) {
 				log.error("Error handling discord typingStart event", err.error || err.body || err);
-			}
-		});
-		client.on("typingStop", async (chan: Discord.Channel, user: Discord.User) => {
-			try {
-				if (!this.discord.isBridgeableChannel(chan)) {
-					return;
-				}
-				const params = this.matrix.getSendParams(puppetId, chan as BridgeableChannel, user);
-				await this.puppet.setUserTyping(params, false);
-			} catch (err) {
-				log.error("Error handling discord typingStop event", err.error || err.body || err);
 			}
 		});
 		client.on("presenceUpdate", async (_, presence: Discord.Presence) => {
@@ -271,7 +260,7 @@ export class App {
 			// aaaand check for role change
 			const leaveRooms = new Set<BridgeableGuildChannel>();
 			const joinRooms = new Set<BridgeableGuildChannel>();
-			for (const chan of newMember.guild.channels.array()) {
+			for (const chan of newMember.guild.channels.cache.array()) {
 				if (!this.discord.isBridgeableGuildChannel(chan)) {
 					continue;
 				}
@@ -304,7 +293,7 @@ export class App {
 			try {
 				const remoteGroup = await this.matrix.getRemoteGroup(puppetId, guild);
 				await this.puppet.updateGroup(remoteGroup);
-				for (const chan of guild.channels.array()) {
+				for (const chan of guild.channels.cache.array()) {
 					if (!this.discord.isBridgeableGuildChannel(chan)) {
 						return;
 					}
@@ -325,7 +314,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		});
 		client.on("guildMemberAdd", async (member: Discord.GuildMember) => {
 			const promiseList: Promise<void>[] = [];
-			for (const chan of member.guild.channels.array()) {
+			for (const chan of member.guild.channels.cache.array()) {
 				if ((await this.bridgeRoom(puppetId, chan)) && chan.members.has(member.id)) {
 					promiseList.push((async () => {
 						const params = this.matrix.getSendParams(puppetId, chan as BridgeableGuildChannel, member);
@@ -337,7 +326,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		});
 		client.on("guildMemberRemove", async (member: Discord.GuildMember) => {
 			const promiseList: Promise<void>[] = [];
-			for (const chan of member.guild.channels.array()) {
+			for (const chan of member.guild.channels.cache.array()) {
 				if (this.discord.isBridgeableGuildChannel(chan)) {
 					promiseList.push((async () => {
 						const params = this.matrix.getSendParams(puppetId, chan as BridgeableGuildChannel, member);
@@ -374,12 +363,12 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			return [];
 		}
 		const blacklistedIds = [p.client.user!.id, "1"];
-		for (const [, guild] of p.client.guilds) {
+		for (const guild of p.client.guilds.cache.array()) {
 			retGuilds.push({
 				category: true,
 				name: guild.name,
 			});
-			for (const member of guild.members.array()) {
+			for (const member of guild.members.cache.array()) {
 				if (!blacklistedIds.includes(member.user.id)) {
 					retGuilds.push({
 						name: member.user.username,
@@ -389,7 +378,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			}
 		}
 
-		for (const user of p.client.users.array()) {
+		for (const user of p.client.users.cache.array()) {
 			const found = retGuilds.find((element) => element.id === user.id);
 			if (!found && !blacklistedIds.includes(user.id)) {
 				retUsers.push({

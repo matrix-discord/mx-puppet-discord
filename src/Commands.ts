@@ -45,7 +45,7 @@ export class Commands {
 			await sendMessage("Puppet not found!");
 			return;
 		}
-		const guild = p.client.guilds.get(param);
+		const guild = p.client.guilds.cache.get(param);
 		if (!guild) {
 			await sendMessage("Guild not found!");
 			return;
@@ -54,7 +54,7 @@ export class Commands {
 			await sendMessage("Guild not bridged!");
 			return;
 		}
-		for (const chan of guild.channels.array()) {
+		for (const chan of guild.channels.cache.array()) {
 			if (!this.app.discord.isBridgeableGuildChannel(chan)) {
 				continue;
 			}
@@ -75,7 +75,7 @@ export class Commands {
 		}
 		const guilds = await this.app.store.getBridgedGuilds(puppetId);
 		let sendStr = "Guilds:\n";
-		for (const guild of p.client.guilds.array()) {
+		for (const guild of p.client.guilds.cache.array()) {
 			let sendStrPart = ` - ${guild.name} (\`${guild.id}\`)`;
 			if (guilds.includes(guild.id)) {
 				sendStrPart += " **bridged!**";
@@ -125,7 +125,7 @@ export class Commands {
 			await sendMessage("Puppet not found!");
 			return;
 		}
-		const guild = p.client.guilds.get(param);
+		const guild = p.client.guilds.cache.get(param);
 		if (!guild) {
 			await sendMessage("Guild not found!");
 			return;
@@ -163,7 +163,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 		}
 		let channel: BridgeableGuildChannel | undefined;
 		let guild: Discord.Guild | undefined;
-		for (const g of p.client.guilds.array()) {
+		for (const g of p.client.guilds.cache.array()) {
 			channel = g.channels.resolve(param) as BridgeableGuildChannel;
 			if (this.app.discord.isBridgeableGuildChannel(channel)) {
 				guild = g;

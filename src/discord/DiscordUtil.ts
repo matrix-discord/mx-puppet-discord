@@ -42,13 +42,13 @@ export class DiscordUtil {
 		const client = p.client;
 		if (!id.startsWith("dm-")) {
 			// first fetch from the client channel cache
-			const chan = client.channels.get(id);
+			const chan = client.channels.resolve(id);
 			if (this.isBridgeableChannel(chan)) {
 				return chan as BridgeableChannel;
 			}
 			// next iterate over all the guild channels
-			for (const guild of client.guilds.array()) {
-				const c = guild.channels.get(id);
+			for (const guild of client.guilds.cache.array()) {
+				const c = guild.channels.resolve(id);
 				if (this.isBridgeableChannel(c)) {
 					return c as BridgeableChannel;
 				}
@@ -278,7 +278,7 @@ export class DiscordUtil {
 		if (!dbEmoji) {
 			return null;
 		}
-		const emoji = client.emojis.get(dbEmoji.emojiId);
+		const emoji = client.emojis.resolve(dbEmoji.emojiId);
 		return emoji || null;
 	}
 
@@ -293,7 +293,7 @@ export class DiscordUtil {
 		const client = guild.client;
 		const bridgeAll = Boolean(this.app.puppets[puppetId] && this.app.puppets[puppetId].data.bridgeAll);
 		// first we iterate over the non-sorted channels
-		for (const chan of guild.channels.array()) {
+		for (const chan of guild.channels.cache.array()) {
 			if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id) && !bridgeAll) {
 				continue;
 			}
@@ -302,7 +302,7 @@ export class DiscordUtil {
 			}
 		}
 		// next we iterate over the categories and all their children
-		for (const cat of guild.channels.array()) {
+		for (const cat of guild.channels.cache.array()) {
 			if (!(cat instanceof Discord.CategoryChannel)) {
 				continue;
 			}
@@ -325,8 +325,8 @@ export class DiscordUtil {
 	}
 
 	public async getUserById(client: Discord.Client, id: string): Promise<Discord.User | null> {
-		for (const guild of client.guilds.array()) {
-			const a = guild.members.find((m) => m.user.id === id);
+		for (const guild of client.guilds.cache.array()) {
+			const a = guild.members.cache.find((m) => m.user.id === id);
 			if (a) {
 				return a.user;
 			}

@@ -137,7 +137,7 @@ export class MatrixUtil {
 			if (chan) {
 				response.roomOverrides[chan.id] = this.getRemoteUserRoomOverride(member, chan);
 			} else {
-				for (const gchan of member.guild.channels.array()) {
+				for (const gchan of member.guild.channels.cache.array()) {
 					if (this.app.discord.isBridgeableGuildChannel(gchan)) {
 						response.roomOverrides[gchan.id] = this.getRemoteUserRoomOverride(member, gchan as BridgeableGuildChannel);
 					}
@@ -251,10 +251,10 @@ export class MatrixUtil {
 		}
 		const remoteUser = this.getRemoteUser(user.puppetId, u);
 		remoteUser.roomOverrides = {};
-		for (const guild of p.client.guilds.array()) {
-			const member = guild.members.get(u.id);
+		for (const guild of p.client.guilds.cache.array()) {
+			const member = guild.members.resolve(u.id);
 			if (member) {
-				for (const chan of guild.channels.array()) {
+				for (const chan of guild.channels.cache.array()) {
 					if (this.app.discord.isBridgeableGuildChannel(chan)) {
 						remoteUser.roomOverrides[chan.id] = this.getRemoteUserRoomOverride(member, chan as BridgeableGuildChannel);
 					}
@@ -270,7 +270,7 @@ export class MatrixUtil {
 			return null;
 		}
 
-		const guild = p.client.guilds.get(group.groupId);
+		const guild = p.client.guilds.resolve(group.groupId);
 		if (!guild) {
 			return null;
 		}
@@ -284,7 +284,7 @@ export class MatrixUtil {
 		if (!p) {
 			return [];
 		}
-		for (const guild of p.client.guilds.array()) {
+		for (const guild of p.client.guilds.cache.array()) {
 			let didGuild = false;
 			let didCat = false;
 			await this.app.discord.iterateGuildStructure(puppetId, guild,
@@ -310,7 +310,7 @@ export class MatrixUtil {
 				},
 			);
 		}
-		for (const chan of p.client.channels.array()) {
+		for (const chan of p.client.channels.cache.array()) {
 			if (chan instanceof Discord.GroupDMChannel) {
 				const found = retGuilds.find((element) => element.id === chan.id);
 				if (!found) {

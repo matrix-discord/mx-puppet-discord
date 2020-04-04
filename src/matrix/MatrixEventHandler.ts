@@ -207,7 +207,7 @@ export class MatrixEventHandler {
 		}
 		let sendMsg = await this.app.matrix.parseMatrixMessage(room.puppetId, event.content);
 		let content = msg.content;
-		if (!content && msg.embeds.length > 0) {
+		if (!content && msg.embeds.length > 0 && msg.embeds[0].description) {
 			content = msg.embeds[0].description;
 		}
 		const replyEmbed = new Discord.MessageEmbed()
@@ -305,7 +305,7 @@ export class MatrixEventHandler {
 		if (reaction.startsWith("mxc://")) {
 			emoji = await this.app.discord.getDiscordEmoji(p.client, reaction);
 		}
-		for (const r of msg.reactions.array()) {
+		for (const r of msg.reactions.cache.array()) {
 			if (r.emoji.name === reaction) {
 				await r.remove();
 				break;
