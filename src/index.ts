@@ -153,6 +153,16 @@ async function run() {
 	puppet.setBotHeaderMsgHook((): string => {
 		return "Discord Puppet Bridge";
 	});
+	puppet.setResolveRoomIdHook(async (ident: string): Promise<string | null> => {
+		if (ident.match(/^[0-9]+$/)) {
+			return ident;
+		}
+		const matches = ident.match(/^(?:https?:\/\/)?discordapp\.com\/channels\/[^\/]+\/([0-9]+)/);
+		if (matches) {
+			return matches[1];
+		}
+		return null;
+	});
 	puppet.registerCommand("syncprofile", {
 		fn: app.commands.commandSyncProfile.bind(app.commands),
 		help: `Enable/disable the syncing of the matrix profile to the discord one (name and avatar)
