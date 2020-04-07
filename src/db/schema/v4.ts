@@ -17,20 +17,38 @@ export class Schema implements IDbSchema {
 	public description = "migrate dm room IDs";
 	public async run(store: Store) {
 		try {
-			const rows = await store.db.All("SELECT * FROM chan_store WHERE room_id LIKE 'dm%'");
+			let rows: any[];
+			try {
+				rows = await store.db.All("SELECT * FROM chan_store WHERE room_id LIKE 'dm%'");
+			} catch (e) {
+				rows = await store.db.All("SELECT * FROM room_store WHERE room_id LIKE 'dm%'");
+			}
 			for (const row of rows) {
 				const parts = (row.room_id as string).split("-");
 				row.room_id = `dm-${row.puppet_id}-${parts[1]}`;
-				await store.db.Run(`UPDATE chan_store SET
-					room_id = $room_id,
-					puppet_id = $puppet_id,
-					name = $name,
-					avatar_url = $avatar_url,
-					avatar_mxc = $avatar_mxc,
-					avatar_hash = $avatar_hash,
-					topic = $topic,
-					group_id = $group_id
-					WHERE mxid = $mxid`, row);
+				try {
+					await store.db.Run(`UPDATE chan_store SET
+						room_id = $room_id,
+						puppet_id = $puppet_id,
+						name = $name,
+						avatar_url = $avatar_url,
+						avatar_mxc = $avatar_mxc,
+						avatar_hash = $avatar_hash,
+						topic = $topic,
+						group_id = $group_id
+						WHERE mxid = $mxid`, row);
+				} catch (e) {
+					await store.db.Run(`UPDATE room_store SET
+						room_id = $room_id,
+						puppet_id = $puppet_id,
+						name = $name,
+						avatar_url = $avatar_url,
+						avatar_mxc = $avatar_mxc,
+						avatar_hash = $avatar_hash,
+						topic = $topic,
+						group_id = $group_id
+						WHERE mxid = $mxid`, row);
+				}
 			}
 		} catch (err) {
 			const log = new Log("DiscordPuppet::DbUpgrade");
