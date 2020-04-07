@@ -16,7 +16,7 @@ bridge:
   displayname: Discord Puppet Bridge
 
   # Avatar URL of the bridge bot
-  avatarUrl: mxc://example.com/1ef7ef86a5b2b283f01b7236b54ec8af
+  #avatarUrl: mxc://example.com/abcdef12345
 
   # Whether to create groups for each Discord Server
   #
