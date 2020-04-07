@@ -2,16 +2,32 @@ bridge:
   # Port to host the bridge on
   # Used for communication between the homeserver and the bridge
   port: 8434
+
   # The host connections to the bridge's webserver are allowed from
   bindAddress: localhost
+
   # Public domain of the homeserver
   domain: matrix.org
+
   # Reachable URL of the Matrix homeserver
   homeserverUrl: https://matrix.org
+
+  # Display name of the bridge bot
+  displayname: Discord Puppet Bridge
+
+  # Avatar URL of the bridge bot
+  avatarUrl: mxc://example.com/1ef7ef86a5b2b283f01b7236b54ec8af
+
+  # Whether to create groups for each Discord Server
+  #
+  # Note that 'enable_group_creation' must be 'true' in Synapse's config
+  # for this to work
+  enableGroupSync: true
 
 presence:
   # Bridge Discord online/offline status
   enabled: true
+
   # How often to send status to the homeserver in milliseconds
   interval: 500
 
@@ -20,51 +36,68 @@ provisioning:
   whitelist:
     # Allow a specific user
     #- "@user:server\\.com"
+    #
     # Allow users on a specific homeserver
-    - "@.*:yourserver\\.com"
+    - "@.*:server\\.com"
+    #
     # Allow anyone
     #- ".*"
+
   # Regex of Matrix IDs forbidden from using the puppet bridge
   #blacklist:
     # Disallow a specific user
     #- "@user:server\\.com"
+    #
     # Disallow users on a specific homeserver
-    #- "@.*:yourserver\\.com"
+    #- "@.*:server\\.com"
 
 database:
-  # Use Postgres as a database backend
-  # If set, will be used instead of SQLite3
+  # Use Postgres as a database backend. If set, will be used instead of SQLite3
+  #
   # Connection string to connect to the Postgres instance
   # with username "user", password "pass", host "localhost" and database name "dbname".
+  #
   # Modify each value as necessary
   #connString: "postgres://user:pass@localhost/dbname?sslmode=disable"
+
   # Use SQLite3 as a database backend
+  #
   # The name of the database file
   filename: database.db
 
 logging:
   # Log level of console output
+  #
   # Allowed values starting with most verbose:
   # silly, verbose, info, warn, error
   console: info
+
   # Date and time formatting
   lineDateFormat: MMM-D HH:mm:ss.SSS
+
   # Logging files
+  #
   # Log files are rotated daily by default
   files:
     # Log file path
     - file: "bridge.log"
       # Log level for this file
+      #
       # Allowed values starting with most verbose:
       # silly, debug, verbose, info, warn, error
       level: info
+
       # Date and time formatting
       datePattern: YYYY-MM-DD
+
       # Maximum number of logs to keep.
+      #
       # This can be a number of files or number of days.
       # If using days, add 'd' as a suffix
       maxFiles: 14d
-      # Maximum size of the file after which it will rotate. This can be a
-      # number of bytes, or units of kb, mb, and gb. If using the units, add
-      # 'k', 'm', or 'g' as the suffix
+
+      # Maximum size of the file after which it will rotate.
+      # This can be a number of bytes, or units of kb, mb, and gb.
+
+      # If using units, add 'k', 'm', or 'g' as the suffix
       maxSize: 50m
