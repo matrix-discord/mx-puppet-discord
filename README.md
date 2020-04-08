@@ -31,7 +31,7 @@ npm run start -- -r [-c config.yaml] [-f discord-registration.yaml]
 ```
 
 Then add the path to the registration file to your synapse `homeserver.yaml`
-under `app_service_config_files`.
+under `app_service_config_files`, and restart synapse.
 
 Finally, run the bridge:
 
