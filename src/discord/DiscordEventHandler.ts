@@ -69,7 +69,7 @@ export class DiscordEventHandler {
 			const opts: IDiscordMessageParserOpts = {
 				callbacks: this.app.discord.getDiscordMsgParserCallbacks(puppetId),
 			};
-			const reply = await this.discordMsgParser.FormatMessage(opts, msg as any); // library uses discord.js
+			const reply = await this.discordMsgParser.FormatMessage(opts, msg);
 			await this.app.puppet.sendMessage(params, {
 				body: reply.body,
 				formattedBody: reply.formattedBody,
@@ -100,7 +100,7 @@ export class DiscordEventHandler {
 		const opts: IDiscordMessageParserOpts = {
 			callbacks: this.app.discord.getDiscordMsgParserCallbacks(puppetId),
 		};
-		const reply = await this.discordMsgParser.FormatMessage(opts, msg2 as any); // library uses discord.js
+		const reply = await this.discordMsgParser.FormatMessage(opts, msg2);
 		if (msg1.content) {
 			// okay we have an actual edit
 			await this.app.puppet.sendEdit(params, msg1.id, {
