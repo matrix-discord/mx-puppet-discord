@@ -12,6 +12,26 @@ bridge:
   # Reachable URL of the Matrix homeserver
   homeserverUrl: https://matrix.org
 
+  # Optionally specify a different media URL used for the media store
+  #
+  # This is where Discord will download user profile pictures and media
+  # from
+  #mediaUrl: https://external-url.org
+
+  # Enables automatic double-puppeting when set. Automatic double-puppeting
+  # allows Discord accounts to control Matrix accounts. So sending a
+  # a message on Discord would send it on Matrix from your Matrix account
+  #
+  # loginSharedSecretMap is simply a map from homeserver URL
+  # to shared secret. Example:
+  #
+  # loginSharedSecretMap:
+  #   matrix.org: "YOUR SHARED SECRET GOES HERE"
+  #
+  # See https://github.com/devture/matrix-synapse-shared-secret-auth for
+  # the necessary server module
+  #loginSharedSecretMap:
+
   # Display name of the bridge bot
   displayname: Discord Puppet Bridge
 
@@ -36,10 +56,10 @@ provisioning:
   whitelist:
     # Allow a specific user
     #- "@user:server\\.com"
-    #
+
     # Allow users on a specific homeserver
     - "@.*:server\\.com"
-    #
+
     # Allow anyone
     #- ".*"
 
@@ -47,9 +67,21 @@ provisioning:
   #blacklist:
     # Disallow a specific user
     #- "@user:server\\.com"
-    #
+
     # Disallow users on a specific homeserver
     #- "@.*:server\\.com"
+
+relay:
+  # Regex of Matrix IDs who are allowed to use the bridge in relay mode.
+  # Relay mode is when a single Discord bot account relays messages of
+  # multiple Matrix users
+  #
+  # Same format as in provisioning
+  whitelist:
+    - "@.*:yourserver\\.com"
+
+  #blacklist:
+    #- "@user:yourserver\\.com"
 
 selfService:
   # Regex of Matrix IDs who are allowed to use bridge self-servicing (plumbed rooms)
@@ -60,6 +92,21 @@ selfService:
 
   #blacklist:
     #- "@user:server\\.com"
+
+# Map of homeserver URLs to their C-S API endpoint
+#
+# Useful for double-puppeting if .well-known is unavailable for some reason
+#homeserverUrlMap:
+  #yourserver.com: http://localhost:1234
+
+# Override the protocols set default name patterns
+#
+# Which variables are available depends on protocol implementation
+namePatterns:
+  user: :name
+  userOverride: :name
+  room: :name
+  group: :name
 
 database:
   # Use Postgres as a database backend. If set, will be used instead of SQLite3
@@ -74,6 +121,18 @@ database:
   #
   # The name of the database file
   filename: database.db
+
+limits:
+  # Up to how many users should be auto-joined on room creation? -1 to disable
+  # auto-join functionality
+  #
+  # Defaults to 200
+  #maxAutojoinUsers: 200
+
+  # How long the delay between two auto-join users should be in milliseconds
+  #
+  # Defaults to 5000
+  #roomUserAutojoinDelay: 5000
 
 logging:
   # Log level of console output
