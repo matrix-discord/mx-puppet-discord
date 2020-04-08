@@ -99,13 +99,43 @@ selfService:
 #homeserverUrlMap:
   #yourserver.com: http://localhost:1234
 
-# Override the protocols set default name patterns
+# Override the default name patterns for users, rooms and groups
 #
-# Which variables are available depends on protocol implementation
+# Variable names must be prefixed with a ':'
 namePatterns:
+  # The default displayname for a bridged user
+  #
+  # Available variables:
+  #
+  # name: username of the user
+  # discriminator: hashtag of the user (ex. #1234)
   user: :name
+
+  # A user's guild-specific displayname - if they've set a custom nick in
+  # a guild
+  #
+  # Available variables:
+  #
+  # name: username of the user
+  # discriminator: hashtag of the user (ex. #1234)
+  # displayname: the user's custom group-specific nick
+  # channel: the name of the channel
+  # guild: the name of the guild
   userOverride: :name
+
+  # Room names for bridged Discord channels
+  #
+  # Available variables:
+  #
+  # name: name of the channel
+  # guild: name of the guild
   room: :name
+
+  # Group names for bridged Discord servers
+  #
+  # Available variables:
+  #
+  # name: name of the guide
   group: :name
 
 database:
