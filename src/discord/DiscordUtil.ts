@@ -73,13 +73,13 @@ export class DiscordUtil {
 
 	public async sendToDiscord(
 		chan: TextChannel,
-		msg: string | Discord.MessageEmbed | IDiscordSendFile,
+		msg: string | IDiscordSendFile,
 		asUser: ISendingUser | null,
 		replyEmbed?: Discord.MessageEmbed,
 	): Promise<Discord.Message | Discord.Message[]> {
 		log.debug("Sending something to discord...");
 		let sendThing: string | Discord.MessageAdditions;
-		if (typeof msg === "string" || msg instanceof Discord.MessageEmbed) {
+		if (typeof msg === "string") {
 			sendThing = msg;
 		} else {
 			sendThing = new Discord.MessageAttachment(msg.buffer, msg.filename);
@@ -123,8 +123,6 @@ export class DiscordUtil {
 				}
 				if (sendThing instanceof Discord.MessageAttachment) {
 					hookOpts.files = [sendThing];
-				} else if (sendThing instanceof Discord.MessageEmbed) {
-					hookOpts.embeds!.unshift(sendThing);
 				}
 				return await hook.send(hookOpts);
 			}
@@ -137,11 +135,6 @@ export class DiscordUtil {
 			const embed = new Discord.MessageEmbed();
 			if (typeof msg === "string") {
 				embed.setDescription(msg);
-			} else if (msg instanceof Discord.MessageEmbed) {
-				if (msg.image) {
-					embed.setTitle(msg.title);
-					embed.setImage(msg.image.url);
-				}
 			} else if (msg.isImage) {
 				embed.setTitle(msg.filename);
 				embed.setImage(msg.url);
@@ -162,15 +155,6 @@ export class DiscordUtil {
 		let sendMsg = "";
 		if (typeof msg === "string") {
 			sendMsg = `**${displayname}**: ${msg}`;
-		} else if (msg instanceof Discord.MessageEmbed) {
-			if (msg.image) {
-				if (msg.title) {
-					const filename = await this.discordEscape(msg.title);
-					sendMsg = `**${displayname}** uploaded a file \`${filename}\`: ${msg.image}`;
-				} else {
-					sendMsg = `**${displayname}** uploaded a file: ${msg.image}`;
-				}
-			}
 		} else {
 			const filename = await this.discordEscape(msg.filename);
 			sendMsg = `**${displayname}** uploaded a file \`${filename}\`: ${msg.url}`;

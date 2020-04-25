@@ -83,20 +83,11 @@ export class MatrixEventHandler {
 			}
 		}
 		try {
-			if (isImage && p.client.user!.bot) {
-				const embed = new Discord.MessageEmbed()
-					.setTitle(data.filename)
-					.setImage(data.url);
-				this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, "");
-				const reply = await this.app.discord.sendToDiscord(chan, embed, asUser);
-				await this.app.matrix.insertNewEventId(room.puppetId, data.eventId!, reply);
-			} else {
-				const filename = await this.app.discord.discordEscape(data.filename);
-				const msg = `Uploaded a file \`${filename}\`: ${data.url}`;
-				this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, msg);
-				const reply = await this.app.discord.sendToDiscord(chan, msg, asUser);
-				await this.app.matrix.insertNewEventId(room.puppetId, data.eventId!, reply);
-			}
+			const filename = await this.app.discord.discordEscape(data.filename);
+			const msg = `Uploaded a file \`${filename}\`: ${data.url}`;
+			this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, msg);
+			const reply = await this.app.discord.sendToDiscord(chan, msg, asUser);
+			await this.app.matrix.insertNewEventId(room.puppetId, data.eventId!, reply);
 		} catch (err) {
 			log.warn("Couldn't send media message", err);
 			this.app.messageDeduplicator.unlock(lockKey);
@@ -150,6 +141,13 @@ export class MatrixEventHandler {
 			return;
 		}
 		let sendMsg = await this.app.matrix.parseMatrixMessage(room.puppetId, event.content["m.new_content"]);
+		// prepend a quote, if needed
+		if (msg.content.startsWith("> <")) {
+			const matches = msg.content.match(/^((> [^\n]+\n)+)/);
+			if (matches) {
+				sendMsg = `${matches[1]}${sendMsg}`;
+			}
+		}
 		const lockKey = `${room.puppetId};${chan.id}`;
 		this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
 		try {
@@ -210,37 +208,14 @@ export class MatrixEventHandler {
 		if (!content && msg.embeds.length > 0 && msg.embeds[0].description) {
 			content = msg.embeds[0].description;
 		}
-		const replyEmbed = new Discord.MessageEmbed()
-			.setTimestamp(new Date(msg.createdAt))
-			.setDescription(content)
-			.setAuthor(msg.author.username, msg.author.avatarURL(AVATAR_SETTINGS) || undefined);
-		if (msg.embeds && msg.embeds[0]) {
-			const msgEmbed = msg.embeds[0];
-			// if an author is set it wasn't an image embed thingy we send
-			if (msgEmbed.image && !msgEmbed.author) {
-				replyEmbed.setImage(msgEmbed.image.url);
-			}
-		}
-		if (msg.attachments.first()) {
-			const attach = msg.attachments.first();
-			if (attach!.height) {
-				// image!
-				replyEmbed.setImage(attach!.proxyURL);
-			} else {
-				replyEmbed.description += `[${attach!.name}](${attach!.proxyURL})`;
-			}
-		}
+		const quoteParts = content.split("\n");
+		quoteParts[0] = `<@${msg.author.id}>: ${quoteParts[0]}`;
+		const quote = quoteParts.map((s) => `> ${s}`).join("\n");
+		sendMsg = `${quote}\n${sendMsg}`;
 		const lockKey = `${room.puppetId};${chan.id}`;
 		try {
-			let reply;
-			if (p.client.user!.bot) {
-				this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
-				reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser, replyEmbed);
-			} else {
-				sendMsg += `\n>>> ${replyEmbed.description}`;
-				this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
-				reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser);
-			}
+			this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
+			const reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser);
 			await this.app.matrix.insertNewEventId(room.puppetId, data.eventId!, reply);
 		} catch (err) {
 			log.warn("Couldn't send reply", err);
