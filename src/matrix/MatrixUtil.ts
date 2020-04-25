@@ -220,14 +220,14 @@ export class MatrixUtil {
 		};
 	}
 
-	public async insertNewEventId(puppetId: number, matrixId: string, msgs: Discord.Message | Discord.Message[]) {
-		const p = this.app.puppets[puppetId];
+	public async insertNewEventId(room: IRemoteRoom, matrixId: string, msgs: Discord.Message | Discord.Message[]) {
+		const p = this.app.puppets[room.puppetId];
 		if (!Array.isArray(msgs)) {
 			msgs = [msgs];
 		}
 		for (const m of msgs) {
-			const lockKey = `${puppetId};${m.channel.id}`;
-			await this.app.puppet.eventSync.insert(puppetId, matrixId, m.id);
+			const lockKey = `${room.puppetId};${m.channel.id}`;
+			await this.app.puppet.eventSync.insert(room, matrixId, m.id);
 			this.app.messageDeduplicator.unlock(lockKey, p.client.user!.id, m.id);
 			this.app.lastEventIds[m.channel.id] = m.id;
 		}

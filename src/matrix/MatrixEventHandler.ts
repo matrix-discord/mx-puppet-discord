@@ -36,7 +36,7 @@ export class MatrixEventHandler {
 		this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
 		try {
 			const reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser);
-			await this.app.matrix.insertNewEventId(room.puppetId, data.eventId!, reply);
+			await this.app.matrix.insertNewEventId(room, data.eventId!, reply);
 		} catch (err) {
 			log.warn("Couldn't send message", err);
 			this.app.messageDeduplicator.unlock(lockKey);
@@ -74,7 +74,7 @@ export class MatrixEventHandler {
 						isImage,
 					};
 					const reply = await this.app.discord.sendToDiscord(chan, sendFile, asUser);
-					await this.app.matrix.insertNewEventId(room.puppetId, data.eventId!, reply);
+					await this.app.matrix.insertNewEventId(room, data.eventId!, reply);
 					return;
 				} catch (err) {
 					this.app.messageDeduplicator.unlock(lockKey);
@@ -87,7 +87,7 @@ export class MatrixEventHandler {
 			const msg = `Uploaded a file \`${filename}\`: ${data.url}`;
 			this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, msg);
 			const reply = await this.app.discord.sendToDiscord(chan, msg, asUser);
-			await this.app.matrix.insertNewEventId(room.puppetId, data.eventId!, reply);
+			await this.app.matrix.insertNewEventId(room, data.eventId!, reply);
 		} catch (err) {
 			log.warn("Couldn't send media message", err);
 			this.app.messageDeduplicator.unlock(lockKey);
@@ -113,7 +113,7 @@ export class MatrixEventHandler {
 		try {
 			p.deletedMessages.add(msg.id);
 			await msg.delete();
-			await this.app.puppet.eventSync.remove(room.puppetId, msg.id);
+			await this.app.puppet.eventSync.remove(room, msg.id);
 		} catch (err) {
 			log.warn("Couldn't delete message", err);
 		}
@@ -158,12 +158,12 @@ export class MatrixEventHandler {
 				if (eventId === this.app.lastEventIds[chan.id]) {
 					try {
 						p.deletedMessages.add(msg.id);
-						const matrixEvents = await this.app.puppet.eventSync.getMatrix(room.puppetId, msg.id);
+						const matrixEvents = await this.app.puppet.eventSync.getMatrix(room, msg.id);
 						if (matrixEvents.length > 0) {
 							matrixEventId = matrixEvents[0];
 						}
 						await msg.delete();
-						await this.app.puppet.eventSync.remove(room.puppetId, msg.id);
+						await this.app.puppet.eventSync.remove(room, msg.id);
 					} catch (err) {
 						log.warn("Couldn't delete old message", err);
 					}
@@ -174,7 +174,7 @@ export class MatrixEventHandler {
 			} else {
 				reply = await msg.edit(sendMsg);
 			}
-			await this.app.matrix.insertNewEventId(room.puppetId, matrixEventId, reply);
+			await this.app.matrix.insertNewEventId(room, matrixEventId, reply);
 		} catch (err) {
 			log.warn("Couldn't edit message", err);
 			this.app.messageDeduplicator.unlock(lockKey);
@@ -216,7 +216,7 @@ export class MatrixEventHandler {
 		try {
 			this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
 			const reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser);
-			await this.app.matrix.insertNewEventId(room.puppetId, data.eventId!, reply);
+			await this.app.matrix.insertNewEventId(room, data.eventId!, reply);
 		} catch (err) {
 			log.warn("Couldn't send reply", err);
 			this.app.messageDeduplicator.unlock(lockKey);
