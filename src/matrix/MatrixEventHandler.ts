@@ -33,8 +33,9 @@ export class MatrixEventHandler {
 		}
 
 		if (asUser) {
-			var displayname = (new TextEncoder().encode(asUser.displayname))
-			asUser.displayname = (new TextDecoder().decode(displayname.slice(0, 80)))
+			const MAX_NAME_LENGTH = 80;
+			const displayname = (new TextEncoder().encode(asUser.displayname));
+			asUser.displayname = (new TextDecoder().decode(displayname.slice(0, MAX_NAME_LENGTH)));
 		}
 
 		const sendMsg = await this.app.matrix.parseMatrixMessage(room.puppetId, event.content);
