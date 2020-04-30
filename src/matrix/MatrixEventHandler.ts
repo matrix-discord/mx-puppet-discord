@@ -14,6 +14,7 @@ limitations under the License.
 import { IRemoteRoom, IMessageEvent, ISendingUser, IFileEvent, Util, Log } from "mx-puppet-bridge";
 import { App, IDiscordSendFile, MAXFILESIZE, AVATAR_SETTINGS } from "../app";
 import * as Discord from "better-discord.js";
+import { TextEncoder, TextDecoder } from "util";
 
 const log = new Log("DiscordPuppet:MatrixEventHandler");
 
@@ -29,6 +30,11 @@ export class MatrixEventHandler {
 		if (!chan) {
 			log.warn("Channel not found", room);
 			return;
+		}
+
+		if (asUser) {
+			var displayname = (new TextEncoder().encode(asUser.displayname))
+			asUser.displayname = (new TextDecoder().decode(displayname.slice(0, 80)))
 		}
 
 		const sendMsg = await this.app.matrix.parseMatrixMessage(room.puppetId, event.content);
