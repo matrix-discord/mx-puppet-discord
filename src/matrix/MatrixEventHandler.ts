@@ -253,7 +253,7 @@ export class MatrixEventHandler {
 			return;
 		}
 		if (reaction.startsWith("mxc://")) {
-			const emoji = await this.app.discord.getDiscordEmoji(p.client, reaction);
+			const emoji = await this.app.discord.getDiscordEmoji(room.puppetId, reaction);
 			if (emoji) {
 				await msg.react(emoji);
 			}
@@ -285,7 +285,7 @@ export class MatrixEventHandler {
 		}
 		let emoji: Discord.Emoji | null = null;
 		if (reaction.startsWith("mxc://")) {
-			emoji = await this.app.discord.getDiscordEmoji(p.client, reaction);
+			emoji = await this.app.discord.getDiscordEmoji(room.puppetId, reaction);
 		}
 		for (const r of msg.reactions.cache.array()) {
 			if (r.emoji.name === reaction) {

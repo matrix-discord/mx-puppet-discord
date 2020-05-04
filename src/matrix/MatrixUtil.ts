@@ -42,24 +42,25 @@ export class MatrixUtil {
 		return `dm-${user.puppetId}-${u.id}`;
 	}
 
-	public async getEmojiMxc(name: string, animated: boolean, id: string): Promise<string | null> {
-		let emoji = await this.app.store.getEmoji(id);
-		if (emoji) {
-			return emoji.mxcUrl;
+	public async getEmojiMxc(puppetId: number, name: string, animated: boolean, id: string): Promise<string | null> {
+		const emoji = await this.app.puppet.emoteSync.get({
+			puppetId,
+			emoteId: id,
+		});
+		if (emoji && emoji.avatarMxc) {
+			return emoji.avatarMxc;
 		}
-		const url = `https://cdn.discordapp.com/emojis/${id}${animated ? ".gif" : ".png"}`;
-		const mxcUrl = await this.app.puppet.uploadContent(
-			null,
-			url,
-		);
-		emoji = {
-			emojiId: id,
+		const { emote } = await this.app.puppet.emoteSync.set({
+			puppetId,
+			emoteId: id,
+			avatarUrl: `https://cdn.discordapp.com/emojis/${id}${animated ? ".gif" : ".png"}`,
 			name,
-			animated,
-			mxcUrl,
-		};
-		await this.app.store.setEmoji(emoji);
-		return emoji.mxcUrl;
+			data: {
+				animated,
+				name,
+			},
+		});
+		return emote.avatarMxc || null;
 	}
 
 	public getSendParams(
@@ -172,6 +173,18 @@ export class MatrixUtil {
 			ret.avatarUrl = gchan.guild.iconURL(AVATAR_SETTINGS);
 			ret.groupId = gchan.guild.id;
 			ret.topic = gchan.topic;
+			ret.emotes = gchan.guild.emojis.cache.map((e) => {
+				return {
+					emoteId: e.id,
+					name: e.name,
+					avatarUrl: e.url,
+					data: {
+						animated: e.animated,
+						name: e.name,
+					},
+					roomId: null,
+				};
+			});
 		}
 		return ret;
 	}
@@ -344,16 +357,16 @@ export class MatrixUtil {
 					return parts.roomId;
 				},
 				getEmoji: async (mxc: string, name: string) => {
-					const dbEmoji = await this.app.store.getEmojiByMxc(mxc);
-					log.info("Found emoji", dbEmoji);
-					if (!dbEmoji) {
+					const emote = await this.app.puppet.emoteSync.getByMxc(puppetId, mxc);
+					log.info("Found emoji", emote);
+					if (!emote) {
 						return null;
 					}
 					return {
-						animated: dbEmoji.animated,
-						name: dbEmoji.name,
-						id: dbEmoji.emojiId,
-					} as any;
+						animated: Boolean(emote.data && emote.data.animated),
+						name: ((emote.data && emote.data.name) || emote.name) as string,
+						id: emote.emoteId,
+					};
 				},
 				mxcUrlToHttp: (mxc: string) => this.app.puppet.getUrlFromMxc(mxc),
 			},

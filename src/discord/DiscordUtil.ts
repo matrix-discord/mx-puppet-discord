@@ -253,16 +253,22 @@ export class DiscordUtil {
 					name,
 				};
 			},
-			getEmoji: this.app.matrix.getEmojiMxc.bind(this),
+			getEmoji: async (name: string, animated: boolean, id: string) => {
+				return await this.app.matrix.getEmojiMxc(puppetId, name, animated, id);
+			},
 		};
 	}
 
-	public async getDiscordEmoji(client: Discord.Client, mxc: string): Promise<Discord.GuildEmoji | null> {
-		const dbEmoji = await this.app.store.getEmojiByMxc(mxc);
-		if (!dbEmoji) {
+	public async getDiscordEmoji(puppetId: number, mxc: string): Promise<Discord.GuildEmoji | null> {
+		const p = this.app.puppets[puppetId];
+		if (!p) {
 			return null;
 		}
-		const emoji = client.emojis.resolve(dbEmoji.emojiId);
+		const emote = await this.app.puppet.emoteSync.getByMxc(puppetId, mxc);
+		if (!emote) {
+			return null;
+		}
+		const emoji = p.client.emojis.resolve(emote.emoteId);
 		return emoji || null;
 	}
 

@@ -191,7 +191,9 @@ export class App {
 				}
 				const params = this.matrix.getSendParams(puppetId, chan, user);
 				if (reaction.emoji.id) {
-					const mxc = await this.matrix.getEmojiMxc(reaction.emoji.name, reaction.emoji.animated, reaction.emoji.id);
+					const mxc = await this.matrix.getEmojiMxc(
+						puppetId, reaction.emoji.name, reaction.emoji.animated, reaction.emoji.id,
+					);
 					await this.puppet.sendReaction(params, reaction.message.id, mxc || reaction.emoji.name);
 				} else {
 					await this.puppet.sendReaction(params, reaction.message.id, reaction.emoji.name);
@@ -209,7 +211,9 @@ export class App {
 				}
 				const params = this.matrix.getSendParams(puppetId, chan, user);
 				if (reaction.emoji.id) {
-					const mxc = await this.matrix.getEmojiMxc(reaction.emoji.name, reaction.emoji.animated, reaction.emoji.id);
+					const mxc = await this.matrix.getEmojiMxc(
+						puppetId, reaction.emoji.name, reaction.emoji.animated, reaction.emoji.id,
+					);
 					await this.puppet.removeReaction(params, reaction.message.id, mxc || reaction.emoji.name);
 				} else {
 					await this.puppet.removeReaction(params, reaction.message.id, reaction.emoji.name);
