@@ -182,7 +182,6 @@ export class MatrixUtil {
 						animated: e.animated,
 						name: e.name,
 					},
-					roomId: null,
 				};
 			});
 		}
