@@ -121,7 +121,7 @@ namePatterns:
   # displayname: the user's custom group-specific nick
   # channel: the name of the channel
   # guild: the name of the guild
-  userOverride: :name
+  userOverride: :displayname
 
   # Room names for bridged Discord channels
   #
