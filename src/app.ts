@@ -119,7 +119,12 @@ export class App {
 		if (this.puppets[puppetId]) {
 			await this.deletePuppet(puppetId);
 		}
-		const client = new Discord.Client();
+		let client: Discord.Client;
+		if (data.bot || false) {
+			client = new Discord.Client({ ws: { intents: Discord.Intents.NON_PRIVILEGED }});
+		} else {
+			client = new Discord.Client();
+		}
 		client.on("ready", async () => {
 			const d = this.puppets[puppetId].data;
 			d.username = client.user!.tag;
