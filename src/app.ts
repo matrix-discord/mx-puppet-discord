@@ -351,7 +351,12 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			data,
 			deletedMessages: new ExpireSet(TWO_MIN),
 		};
-		await client.login(data.token, data.bot || false);
+		try {
+			await client.login(data.token, data.bot || false);
+		} catch (e) {
+			log.error(`Failed to log in puppetId ${puppetId}:`, e);
+			await this.puppet.sendStatusMessage(puppetId, "Failed to connect: " + e);
+		}
 	}
 
 	public async deletePuppet(puppetId: number) {
