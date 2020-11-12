@@ -21,9 +21,11 @@ RUN wget -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sger
     wget -O glibc-2.32-r0.apk https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.32-r0/glibc-2.32-r0.apk && \
     apk add glibc-2.32-r0.apk
 
+COPY package.json package-lock.json ./
+RUN chown node:node package.json package-lock.json
+
 USER node
 
-COPY package.json package-lock.json ./
 RUN npm install
 
 COPY tsconfig.json ./
