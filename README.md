@@ -107,7 +107,9 @@ You can remove friends with `removefriend <puppetId> <userId>`.
 
 ## Docker
 
-Build docker image:
+Docker image can be found at https://hub.docker.com/r/sorunome/mx-puppet-discord
+
+Alternatively build it yourself:
 
     docker build -t mx-puppet-discord .
 
