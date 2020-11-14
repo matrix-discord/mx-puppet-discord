@@ -341,7 +341,7 @@ export class MatrixEventHandler {
 		if (presence.statusMsg) {
 			presenceObj.activity = {
 				name: presence.statusMsg,
-				type: (p.client.user!.bot ? "PLAYING" : "CUSTOM_STATUS") as "PLAYING" | "CUSTOM_STATUS",
+				type: "PLAYING",
 			};
 		}
 		await p.client.user!.setPresence(presenceObj);
