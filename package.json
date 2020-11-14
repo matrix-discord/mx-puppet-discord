@@ -20,7 +20,7 @@
     "js-yaml": "^3.13.1",
     "matrix-discord-parser": "0.1.5",
     "mime": "^2.4.4",
-    "mx-puppet-bridge": "0.0.45-3",
+    "mx-puppet-bridge": "0.1.0",
     "path": "^0.12.7",
     "tslint": "^5.17.0",
     "typescript": "^3.7.4"

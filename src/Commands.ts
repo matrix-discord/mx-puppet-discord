@@ -28,7 +28,8 @@ export class Commands {
 			await sendMessage("Puppet not found!");
 			return;
 		}
-		const syncProfile = param === "1" || param.toLowerCase() === "true";
+		// only bots are allowed to profile sync, for security reasons
+		const syncProfile = p.client.user!.bot ? param === "1" || param.toLowerCase() === "true" : false;
 		p.data.syncProfile = syncProfile;
 		await this.app.puppet.setPuppetData(puppetId, p.data);
 		if (syncProfile) {

@@ -105,6 +105,8 @@ async function run() {
 	puppet.on("reply", app.matrix.events.handleMatrixReply.bind(app.matrix.events));
 	puppet.on("reaction", app.matrix.events.handleMatrixReaction.bind(app.matrix.events));
 	puppet.on("removeReaction", app.matrix.events.handleMatrixRemoveReaction.bind(app.matrix.events));
+	puppet.on("typing", app.matrix.events.handleMatrixTyping.bind(app.matrix.events));
+	puppet.on("presence", app.matrix.events.handleMatrixPresence.bind(app.matrix.events));
 	puppet.on("puppetName", app.handlePuppetName.bind(app));
 	puppet.on("puppetAvatar", app.handlePuppetAvatar.bind(app));
 	puppet.setGetUserIdsInRoomHook(app.getUserIdsInRoom.bind(app));

@@ -11,7 +11,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-import { IRemoteRoom, IMessageEvent, ISendingUser, IFileEvent, Util, Log } from "mx-puppet-bridge";
+import { IRemoteRoom, IMessageEvent, ISendingUser, IFileEvent, Util, Log, IPresenceEvent } from "mx-puppet-bridge";
 import { App, IDiscordSendFile, MAXFILESIZE, AVATAR_SETTINGS } from "../app";
 import * as Discord from "better-discord.js";
 import { TextEncoder, TextDecoder } from "util";
@@ -297,5 +297,53 @@ export class MatrixEventHandler {
 				break;
 			}
 		}
+	}
+
+	public async handleMatrixTyping(
+		room: IRemoteRoom,
+		typing: boolean,
+		asUser: ISendingUser | null,
+		event: any,
+	) {
+		const p = this.app.puppets[room.puppetId];
+		if (!p || asUser) {
+			return;
+		}
+		const chan = await this.app.discord.getDiscordChan(room);
+		if (!chan) {
+			log.warn("Channel not found", room);
+			return;
+		}
+		if (typing) {
+			await chan.startTyping();
+		} else {
+			chan.stopTyping(true);
+		}
+	}
+
+	public async handleMatrixPresence(
+		puppetId: number,
+		presence: IPresenceEvent,
+		asUser: ISendingUser | null,
+		event: any,
+	) {
+		const p = this.app.puppets[puppetId];
+		if (!p || asUser) {
+			return;
+		}
+		const presenceObj: Discord.PresenceData = {
+			status: {
+				online: "online",
+				offline: "invisible",
+				unavailable: "idle",
+			}[presence.presence] as "online" | "invisible" | "idle" | undefined,
+		};
+		if (presence.statusMsg) {
+			presenceObj.activity = {
+				name: presence.statusMsg,
+				type: (p.client.user!.bot ? "PLAYING" : "CUSTOM_STATUS") as "PLAYING" | "CUSTOM_STATUS",
+			};
+		}
+		await p.client.user!.setPresence(presenceObj);
 	}
 }
