@@ -45,8 +45,8 @@ Start a chat with `@_discordpuppet_bot:yourserver.com`. When it joins, type
 `help` in the chat to see instructions.
 
 **Warning**: Self-bots are against Discord's Terms of Service.
-When used with user tokens, you might have your account disabled.
-When used with bot tokens, you might lose ability to add new bots or have your account terminated.
+* When used with user tokens, you might have your account disabled or terminated.
+* When used with bot tokens, you might lose ability to add new bots or have your account terminated.
 
 ### Linking a Discord bot account
 
