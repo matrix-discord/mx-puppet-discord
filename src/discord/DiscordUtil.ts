@@ -95,38 +95,41 @@ export class DiscordUtil {
 		// alright, we have to send as if it was another user. First try webhooks.
 		if (this.isTextGuildChannel(chan)) {
 			chan = chan as TextGuildChannel;
-			log.debug("Trying to send as webhook...");
-			let hook: Discord.Webhook | null = null;
-			try {
-				hook = (await chan.fetchWebhooks()).find((h) => h.name === "_matrix") || null;
-				if (!hook) {
-					try {
-						hook = await chan.createWebhook("_matrix", {
-							reason: "Allow bridging matrix messages to discord nicely",
-						});
-					} catch (err) {
-						log.warn("Unable to create \"_matrix\" webhook", err);
+			const permissions = chan.permissionsFor(chan.client.user!);
+			if (permissions && permissions.has(Discord.Permissions.FLAGS.MANAGE_WEBHOOKS)) {
+				log.debug("Trying to send as webhook...");
+				let hook: Discord.Webhook | null = null;
+				try {
+					hook = (await chan.fetchWebhooks()).find((h) => h.name === "_matrix") || null;
+					if (!hook) {
+						try {
+							hook = await chan.createWebhook("_matrix", {
+								reason: "Allow bridging matrix messages to discord nicely",
+							});
+						} catch (err) {
+							log.warn("Unable to create \"_matrix\" webhook", err);
+						}
 					}
+				} catch (err) {
+					log.warn("Missing webhook permissions", err);
 				}
-			} catch (err) {
-				log.warn("Missing webhook permissions", err);
+				if (hook) {
+					const hookOpts: Discord.WebhookMessageOptions & { split: true } = {
+						username: asUser.displayname,
+						avatarURL: asUser.avatarUrl || undefined,
+						embeds: replyEmbed ? [replyEmbed] : [],
+						split: true,
+					};
+					if (typeof sendThing === "string") {
+						return await hook.send(sendThing, hookOpts);
+					}
+					if (sendThing instanceof Discord.MessageAttachment) {
+						hookOpts.files = [sendThing];
+					}
+					return await hook.send(hookOpts);
+				}
+				log.debug("Couldn't send as webhook");
 			}
-			if (hook) {
-				const hookOpts: Discord.WebhookMessageOptions & { split: true } = {
-					username: asUser.displayname,
-					avatarURL: asUser.avatarUrl || undefined,
-					embeds: replyEmbed ? [replyEmbed] : [],
-					split: true,
-				};
-				if (typeof sendThing === "string") {
-					return await hook.send(sendThing, hookOpts);
-				}
-				if (sendThing instanceof Discord.MessageAttachment) {
-					hookOpts.files = [sendThing];
-				}
-				return await hook.send(hookOpts);
-			}
-			log.debug("Couldn't send as webhook");
 		}
 		// alright, we either weren't able to send as webhook or we aren't in a webhook-able channel.
 		// so.....let's try to send as embed next
