@@ -22,7 +22,7 @@ const log = new Log("DiscordPuppet:DiscordEventHandler");
 export class DiscordEventHandler {
 	private discordMsgParser: DiscordMessageParser;
 
-	public constructor(private readonly app: App, private readonly discordUtil: DiscordUtil) {
+	public constructor(private readonly app: App) {
 		this.discordMsgParser = this.app.discordMsgParser;
 	}
 
@@ -36,7 +36,7 @@ export class DiscordEventHandler {
 		}
 		log.info("Received new message!");
 		if (!await this.app.bridgeRoom(puppetId, msg.channel)) {
-			log.info("Unhandled channel, dropping message...");
+			log.verbose("Unhandled channel, dropping message...");
 			return;
 		}
 		const params = this.app.matrix.getSendParams(puppetId, msg);
@@ -44,19 +44,17 @@ export class DiscordEventHandler {
 		const dedupeMsg = msg.attachments.first() ? `file:${msg.attachments.first()!.name}` : msg.content;
 		if (await this.app.messageDeduplicator.dedupe(lockKey, msg.author.id, msg.id, dedupeMsg)) {
 			// dedupe message
-			log.info("Deduping message, dropping...");
+			log.verbose("Deduping message, dropping...");
 			return;
 		}
 		if (msg.webhookID && this.app.discord.isTextGuildChannel(msg.channel)) {
 			// maybe we are a webhook from our webhook?
 			const chan = msg.channel as TextGuildChannel;
-			try {
-				const hook = await this.discordUtil.getOrCreateWebhook(chan);
-				if (hook && msg.webhookID === hook.id) {
-					log.info("Message sent from our webhook, deduping...");
-					return;
-				}
-			} catch (err) { } // no webhook permissions, ignore
+			const hook = await this.app.discord.getOrCreateWebhook(chan);
+			if (hook && msg.webhookID === hook.id) {
+				log.verbose("Message sent from our webhook, deduping...");
+				return;
+			}
 		}
 		this.app.lastEventIds[msg.channel.id] = msg.id;
 		if (msg.content || msg.embeds.length > 0) {
@@ -83,7 +81,7 @@ export class DiscordEventHandler {
 		}
 		for (const attachment of msg.attachments.array()) {
 			params.externalUrl = attachment.url;
-			await this.app.puppet.sendFileDetect(params, attachment.url, attachment.name);
+			await this.app.puppet.sendFileDetect(params, attachment.url, attachment.name || undefined);
 		}
 	}
 
@@ -99,10 +97,20 @@ export class DiscordEventHandler {
 		const lockKey = `${puppetId};${msg1.channel.id}`;
 		if (await this.app.messageDeduplicator.dedupe(lockKey, msg2.author.id, msg2.id, msg2.content)) {
 			// dedupe message
+			log.verbose("Deduping message, dropping...");
 			return;
 		}
+		if (msg2.webhookID && this.app.discord.isTextGuildChannel(msg2.channel)) {
+			// maybe we are a webhook from our webhook?
+			const chan = msg2.channel as TextGuildChannel;
+			const hook = await this.app.discord.getOrCreateWebhook(chan);
+			if (hook && msg2.webhookID === hook.id) {
+				log.verbose("Message sent from our webhook, deduping...");
+				return;
+			}
+		}
 		if (!await this.app.bridgeRoom(puppetId, msg1.channel)) {
-			log.info("Unhandled channel, dropping message...");
+			log.verbose("Unhandled channel, dropping message...");
 			return;
 		}
 		const opts: IDiscordMessageParserOpts = {

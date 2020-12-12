@@ -15,6 +15,7 @@ import { IRemoteRoom, IMessageEvent, ISendingUser, IFileEvent, Util, Log, IPrese
 import { App, IDiscordSendFile, MAXFILESIZE, AVATAR_SETTINGS } from "../app";
 import * as Discord from "better-discord.js";
 import { TextEncoder, TextDecoder } from "util";
+import { TextGuildChannel } from "../discord/DiscordUtil";
 
 const log = new Log("DiscordPuppet:MatrixEventHandler");
 
@@ -119,7 +120,13 @@ export class MatrixEventHandler {
 		}
 		try {
 			p.deletedMessages.add(msg.id);
-			await msg.delete();
+			const hook = msg.webhookID && this.app.discord.isTextGuildChannel(chan) ?
+				await this.app.discord.getOrCreateWebhook(chan as TextGuildChannel) : null;
+			if (hook && msg.webhookID === hook.id) {
+				await hook.deleteMessage(msg);
+			} else {
+				await msg.delete();
+			}
 			await this.app.puppet.eventSync.remove(room, msg.id);
 		} catch (err) {
 			log.warn("Couldn't delete message", err);
@@ -161,8 +168,16 @@ export class MatrixEventHandler {
 			let reply: Discord.Message | Discord.Message[];
 			let matrixEventId = data.eventId!;
 			if (asUser) {
-				// just re-send as new message
-				if (eventId === this.app.lastEventIds[chan.id]) {
+				const hook = this.app.discord.isTextGuildChannel(chan) ?
+					await this.app.discord.getOrCreateWebhook(chan as TextGuildChannel) : null;
+				if (hook && msg.webhookID === hook.id) {
+					// the original message was by our webhook, try to edit it
+					reply = await hook.editMessage(msg, sendMsg, {
+						username: asUser.displayname,
+						avatarURL: asUser.avatarUrl || undefined,
+					});
+				} else if (eventId === this.app.lastEventIds[chan.id]) {
+					// just re-send as new message
 					try {
 						p.deletedMessages.add(msg.id);
 						const matrixEvents = await this.app.puppet.eventSync.getMatrix(room, msg.id);
@@ -174,10 +189,11 @@ export class MatrixEventHandler {
 					} catch (err) {
 						log.warn("Couldn't delete old message", err);
 					}
+					reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser);
 				} else {
 					sendMsg = `**EDIT:** ${sendMsg}`;
+					reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser);
 				}
-				reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser);
 			} else {
 				reply = await msg.edit(sendMsg);
 			}

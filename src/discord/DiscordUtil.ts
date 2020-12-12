@@ -29,7 +29,7 @@ export class DiscordUtil {
 	private webhookCache: Map<string, Discord.Webhook> = new Map();
 
 	public constructor(private readonly app: App) {
-		this.events = new DiscordEventHandler(app, this);
+		this.events = new DiscordEventHandler(app);
 	}
 
 	public async getDiscordChan(
