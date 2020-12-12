@@ -474,7 +474,9 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		let ext = "";
 		const mimeExt = mime.getExtension(mimetype);
 		if (mimeExt) {
-			ext = "." + mimeExt;
+			ext = "." + ({
+				oga: "ogg",
+			}[mimeExt] || mimeExt);
 		}
 		if (filename) {
 			if (path.extname(filename) !== "") {
