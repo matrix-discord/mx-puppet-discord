@@ -59,12 +59,6 @@ export class DiscordEventHandler {
 			} catch (err) { } // no webhook permissions, ignore
 		}
 		this.app.lastEventIds[msg.channel.id] = msg.id;
-		const externalUrl = params.externalUrl;
-		for (const attachment of msg.attachments.array()) {
-			params.externalUrl = attachment.url;
-			await this.app.puppet.sendFileDetect(params, attachment.url, attachment.name);
-		}
-		params.externalUrl = externalUrl;
 		if (msg.content || msg.embeds.length > 0) {
 			const opts: IDiscordMessageParserOpts = {
 				callbacks: this.app.discord.getDiscordMsgParserCallbacks(puppetId),
@@ -86,6 +80,10 @@ export class DiscordEventHandler {
 					notice: reply.msgtype === "m.notice",
 				});
 			}
+		}
+		for (const attachment of msg.attachments.array()) {
+			params.externalUrl = attachment.url;
+			await this.app.puppet.sendFileDetect(params, attachment.url, attachment.name);
 		}
 	}
 
