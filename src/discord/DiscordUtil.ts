@@ -26,6 +26,7 @@ export type BridgeableChannel = BridgeableGuildChannel | Discord.DMChannel | Dis
 
 export class DiscordUtil {
 	public readonly events: DiscordEventHandler;
+	private webhookCache: Map<string, Discord.Webhook> = new Map();
 
 	public constructor(private readonly app: App) {
 		this.events = new DiscordEventHandler(app);
@@ -71,6 +72,38 @@ export class DiscordUtil {
 		}
 	}
 
+	public async getOrCreateWebhook(chan: TextGuildChannel): Promise<Discord.Webhook | null> {
+		log.debug("Attempting to fetch webhook...");
+		const mapKey = `${chan.client.user!.id};${chan.id}`;
+		if (this.webhookCache.has(mapKey)) {
+			return this.webhookCache.get(mapKey)!;
+		}
+		const permissions = chan.permissionsFor(chan.client.user!);
+		if (!permissions || !permissions.has(Discord.Permissions.FLAGS.MANAGE_WEBHOOKS)) {
+			log.warn("Missing webhook permissions");
+			return null;
+		}
+		try {
+			const hook = (await chan.fetchWebhooks()).find((h) => h.name === "_matrix") || null;
+			if (hook) {
+				this.webhookCache.set(mapKey, hook);
+				return hook;
+			}
+			try {
+				const newHook = await chan.createWebhook("_matrix", {
+					reason: "Allow bridging matrix messages to discord nicely",
+				});
+				this.webhookCache.set(mapKey, newHook);
+				return newHook;
+			} catch (err) {
+				log.warn("Unable to create \"_matrix\" webhook", err);
+			}
+		} catch (err) {
+			log.warn("Missing webhook permissions", err);
+		}
+		return null;
+	}
+
 	public async sendToDiscord(
 		chan: TextChannel,
 		msg: string | IDiscordSendFile,
@@ -91,25 +124,10 @@ export class DiscordUtil {
 		// alright, we have to send as if it was another user. First try webhooks.
 		if (this.isTextGuildChannel(chan)) {
 			chan = chan as TextGuildChannel;
-			const permissions = chan.permissionsFor(chan.client.user!);
-			if (permissions && permissions.has(Discord.Permissions.FLAGS.MANAGE_WEBHOOKS)) {
-				log.debug("Trying to send as webhook...");
-				let hook: Discord.Webhook | null = null;
+			const hook = await this.getOrCreateWebhook(chan);
+			if (hook) {
 				try {
-					hook = (await chan.fetchWebhooks()).find((h) => h.name === "_matrix") || null;
-					if (!hook) {
-						try {
-							hook = await chan.createWebhook("_matrix", {
-								reason: "Allow bridging matrix messages to discord nicely",
-							});
-						} catch (err) {
-							log.warn("Unable to create \"_matrix\" webhook", err);
-						}
-					}
-				} catch (err) {
-					log.warn("Missing webhook permissions", err);
-				}
-				if (hook) {
+					log.debug("Trying to send as webhook...");
 					const hookOpts: Discord.WebhookMessageOptions & { split: true } = {
 						username: asUser.displayname,
 						avatarURL: asUser.avatarUrl || undefined,
@@ -122,8 +140,10 @@ export class DiscordUtil {
 						hookOpts.files = [sendThing];
 					}
 					return await hook.send(hookOpts);
+				} catch (err) {
+					log.debug("Couldn't send as webhook", err);
+					this.webhookCache.delete(`${chan.client.user!.id};${chan.id}`);
 				}
-				log.debug("Couldn't send as webhook");
 			}
 		}
 		// alright, we either weren't able to send as webhook or we aren't in a webhook-able channel.
