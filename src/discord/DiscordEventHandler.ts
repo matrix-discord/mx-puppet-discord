@@ -15,14 +15,14 @@ import { App } from "../app";
 import * as Discord from "better-discord.js";
 import { IDiscordMessageParserOpts, DiscordMessageParser } from "matrix-discord-parser";
 import { Log } from "mx-puppet-bridge";
-import { TextGuildChannel } from "./DiscordUtil";
+import { TextGuildChannel, DiscordUtil } from "./DiscordUtil";
 
 const log = new Log("DiscordPuppet:DiscordEventHandler");
 
 export class DiscordEventHandler {
 	private discordMsgParser: DiscordMessageParser;
 
-	public constructor(private readonly app: App) {
+	public constructor(private readonly app: App, private readonly discordUtil: DiscordUtil) {
 		this.discordMsgParser = this.app.discordMsgParser;
 	}
 
@@ -51,7 +51,7 @@ export class DiscordEventHandler {
 			// maybe we are a webhook from our webhook?
 			const chan = msg.channel as TextGuildChannel;
 			try {
-				const hook = (await chan.fetchWebhooks()).find((h) => h.name === "_matrix") || null;
+				const hook = await this.discordUtil.getOrCreateWebhook(chan);
 				if (hook && msg.webhookID === hook.id) {
 					log.info("Message sent from our webhook, deduping...");
 					return;
@@ -70,12 +70,22 @@ export class DiscordEventHandler {
 				callbacks: this.app.discord.getDiscordMsgParserCallbacks(puppetId),
 			};
 			const reply = await this.discordMsgParser.FormatMessage(opts, msg);
-			await this.app.puppet.sendMessage(params, {
-				body: reply.body,
-				formattedBody: reply.formattedBody,
-				emote: reply.msgtype === "m.emote",
-				notice: reply.msgtype === "m.notice",
-			});
+			const replyId = (msg.reference && msg.reference.messageID) || null;
+			if (replyId) {
+				await this.app.puppet.sendReply(params, replyId, {
+					body: reply.body,
+					formattedBody: reply.formattedBody,
+					emote: reply.msgtype === "m.emote",
+					notice: reply.msgtype === "m.notice",
+				});
+			} else {
+				await this.app.puppet.sendMessage(params, {
+					body: reply.body,
+					formattedBody: reply.formattedBody,
+					emote: reply.msgtype === "m.emote",
+					notice: reply.msgtype === "m.notice",
+				});
+			}
 		}
 	}
 
