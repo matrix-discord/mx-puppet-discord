@@ -8,6 +8,8 @@ Also see [matrix-appservice-discord](https://github.com/Half-Shot/matrix-appserv
 
 ## Setup
 
+You need at least node 12 to be able to run this!
+
 Clone the repo and install the dependencies:
 
 ```
