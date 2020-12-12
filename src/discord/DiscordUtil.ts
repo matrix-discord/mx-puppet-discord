@@ -75,7 +75,6 @@ export class DiscordUtil {
 		chan: TextChannel,
 		msg: string | IDiscordSendFile,
 		asUser: ISendingUser | null,
-		replyEmbed?: Discord.MessageEmbed,
 	): Promise<Discord.Message | Discord.Message[]> {
 		log.debug("Sending something to discord...");
 		let sendThing: string | Discord.MessageAdditions;
@@ -87,9 +86,6 @@ export class DiscordUtil {
 		if (!asUser) {
 			// we don't want to relay, so just send off nicely
 			log.debug("Not in relay mode, just sending as user");
-			if (replyEmbed && chan.client.user!.bot) {
-				return await chan.send(sendThing, replyEmbed);
-			}
 			return await chan.send(sendThing);
 		}
 		// alright, we have to send as if it was another user. First try webhooks.
@@ -117,7 +113,6 @@ export class DiscordUtil {
 					const hookOpts: Discord.WebhookMessageOptions & { split: true } = {
 						username: asUser.displayname,
 						avatarURL: asUser.avatarUrl || undefined,
-						embeds: replyEmbed ? [replyEmbed] : [],
 						split: true,
 					};
 					if (typeof sendThing === "string") {
@@ -145,10 +140,6 @@ export class DiscordUtil {
 				const filename = await this.discordEscape(msg.filename);
 				embed.setDescription(`Uploaded a file \`${filename}\`: ${msg.url}`);
 			}
-			if (replyEmbed && replyEmbed.description) {
-				embed.addField("Replying to", replyEmbed.author!.name);
-				embed.addField("Reply text", replyEmbed.description);
-			}
 			embed.setAuthor(asUser.displayname, asUser.avatarUrl || undefined, `https://matrix.to/#/${asUser.mxid}`);
 			return await chan.send(embed);
 		}
@@ -161,9 +152,6 @@ export class DiscordUtil {
 		} else {
 			const filename = await this.discordEscape(msg.filename);
 			sendMsg = `**${displayname}** uploaded a file \`${filename}\`: ${msg.url}`;
-		}
-		if (replyEmbed && replyEmbed.description) {
-			sendMsg += `\n>>> ${replyEmbed.description}`;
 		}
 		return await chan.send(sendMsg);
 	}
