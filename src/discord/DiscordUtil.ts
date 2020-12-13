@@ -225,9 +225,7 @@ export class DiscordUtil {
 		}
 		const remoteUser = this.app.matrix.getRemoteUser(puppetId, presence.user!);
 		await this.app.puppet.setUserPresence(remoteUser, matrixPresence);
-		if (statusMsg) {
-			await this.app.puppet.setUserStatus(remoteUser, statusMsg);
-		}
+		await this.app.puppet.setUserStatus(remoteUser, statusMsg);
 	}
 
 	public getDiscordMsgParserCallbacks(puppetId: number): IDiscordMessageParserCallbacks {
