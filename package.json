@@ -11,7 +11,7 @@
   },
   "author": "Sorunome",
   "dependencies": {
-    "better-discord.js": "git+https://github.com/Sorunome/better-discord.js.git#48b0430770f453be4533d044e63bf2d9aebe112d",
+    "better-discord.js": "git+https://github.com/Sorunome/better-discord.js.git#5e58e1e7510cf2192f3503ca146dd61a56a75c72",
     "command-line-args": "^5.1.1",
     "command-line-usage": "^5.0.5",
     "escape-html": "^1.0.3",
@@ -20,7 +20,7 @@
     "js-yaml": "^3.13.1",
     "matrix-discord-parser": "0.1.6",
     "mime": "^2.4.4",
-    "mx-puppet-bridge": "0.1.0",
+    "mx-puppet-bridge": "0.1.1",
     "path": "^0.12.7",
     "tslint": "^5.17.0",
     "typescript": "^3.7.4"
