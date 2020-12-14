@@ -56,6 +56,11 @@ export class DiscordEventHandler {
 				return;
 			}
 		}
+		// if we are a bot we can safely ignore all our own messages sent
+		if (p.client.user!.bot && msg.author.id === p.client.user!.id && !msg.content && msg.embeds.length > 0) {
+			log.verbose("Message sent from our own bot, deduplicating...");
+			return;
+		}
 		this.app.lastEventIds[msg.channel.id] = msg.id;
 		if (msg.content || msg.embeds.length > 0) {
 			const opts: IDiscordMessageParserOpts = {
@@ -108,6 +113,11 @@ export class DiscordEventHandler {
 				log.verbose("Message sent from our webhook, deduping...");
 				return;
 			}
+		}
+		// if we are a bot we can safely ignore all our own messages sent
+		if (p.client.user!.bot && msg2.author.id === p.client.user!.id && !msg2.content && msg2.embeds.length > 0) {
+			log.verbose("Message sent from our own bot, deduplicating...");
+			return;
 		}
 		if (!await this.app.bridgeRoom(puppetId, msg1.channel)) {
 			log.verbose("Unhandled channel, dropping message...");
