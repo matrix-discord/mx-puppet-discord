@@ -134,6 +134,7 @@ export class App {
 			await this.puppet.setPuppetData(puppetId, d);
 			await this.puppet.sendStatusMessage(puppetId, "connected");
 			await this.updateUserInfo(puppetId);
+			this.puppet.trackConnectionStatus(puppetId, true);
 			// set initial presence for everyone
 			for (const user of client.users.cache.array()) {
 				await this.discord.updatePresence(puppetId, user.presence);
@@ -356,6 +357,7 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 		} catch (e) {
 			log.error(`Failed to log in puppetId ${puppetId}:`, e);
 			await this.puppet.sendStatusMessage(puppetId, "Failed to connect: " + e);
+			this.puppet.trackConnectionStatus(puppetId, false);
 		}
 	}
 
