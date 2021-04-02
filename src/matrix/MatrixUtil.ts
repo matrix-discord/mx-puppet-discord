@@ -169,6 +169,7 @@ export class MatrixUtil {
 			ret.nameVars = {
 				name: gchan.name,
 				guild: gchan.guild.name,
+				category: gchan.parent?.name,
 			};
 			ret.avatarUrl = gchan.guild.iconURL(AVATAR_SETTINGS);
 			ret.groupId = gchan.guild.id;
