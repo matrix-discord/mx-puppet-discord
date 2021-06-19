@@ -5,7 +5,7 @@ WORKDIR /opt/mx-puppet-discord
 # run build process as user in case of npm pre hooks
 # pre hooks are not executed while running as root
 RUN chown node:node /opt/mx-puppet-discord
-RUN apk --no-cache add git python make g++ pkgconfig \
+RUN apk --no-cache add git python3 make g++ pkgconfig \
     build-base \
     cairo-dev \
     jpeg-dev \
