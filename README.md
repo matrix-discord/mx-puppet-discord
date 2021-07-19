@@ -86,6 +86,8 @@ your.token-here`.
 **Warning**: Linking your user account's token is against Discord's Terms of Service.
 
 First [retrieve your Discord User Token](https://discordhelp.net/discord-token).
+If this don't work, use this method:
+https://github.com/Tyrrrz/DiscordChatExporter/wiki/Obtaining-Token-and-Channel-IDs#how-to-get-a-user-token
 
 Then send the bot a message with the contents `link user your.token-here`.
 
