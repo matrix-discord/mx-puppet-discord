@@ -129,6 +129,7 @@ namePatterns:
   #
   # name: name of the channel
   # guild: name of the guild
+  # category: name of the category if existant
   room: :name
 
   # Group names for bridged Discord servers
