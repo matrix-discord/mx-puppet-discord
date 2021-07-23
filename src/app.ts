@@ -34,6 +34,7 @@ import {
 import { MatrixUtil } from "./matrix/MatrixUtil";
 import { Commands } from "./Commands";
 import ExpireSet from "expire-set";
+import * as Emoji from "node-emoji";
 
 const log = new Log("DiscordPuppet:App");
 export const AVATAR_SETTINGS: Discord.ImageURLOptions & { dynamic?: boolean | undefined; }
@@ -202,7 +203,7 @@ export class App {
 					);
 					await this.puppet.sendReaction(params, reaction.message.id, mxc || reaction.emoji.name);
 				} else {
-					await this.puppet.sendReaction(params, reaction.message.id, reaction.emoji.name);
+					await this.puppet.sendReaction(params, reaction.message.id, this.emojiAddVariant(reaction.emoji.name));
 				}
 			} catch (err) {
 				log.error("Error handling discord messageReactionAdd event", err.error || err.body || err);
@@ -222,7 +223,7 @@ export class App {
 					);
 					await this.puppet.removeReaction(params, reaction.message.id, mxc || reaction.emoji.name);
 				} else {
-					await this.puppet.removeReaction(params, reaction.message.id, reaction.emoji.name);
+					await this.puppet.removeReaction(params, reaction.message.id, this.emojiAddVariant(reaction.emoji.name));
 				}
 			} catch (err) {
 				log.error("Error handling discord messageReactionRemove event", err.error || err.body || err);
@@ -487,5 +488,12 @@ Type \`addfriend ${puppetId} ${relationship.user.id}\` to accept it.`;
 			return path.basename(filename) + ext;
 		}
 		return "matrix-media" + ext;
+	}
+
+	public emojiAddVariant(s: string): string {
+		if (Emoji.find(s + "\ufe0f")) {
+			return s + "\ufe0f";
+		}
+		return s;
 	}
 }
