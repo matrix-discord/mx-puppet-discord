@@ -1,4 +1,4 @@
-FROM node:alpine AS builder
+FROM node:12-alpine AS builder
 
 WORKDIR /opt/mx-puppet-discord
 
@@ -33,7 +33,7 @@ COPY src/ ./src/
 RUN npm run build
 
 
-FROM node:alpine
+FROM node:12-alpine
 
 VOLUME /data
 
