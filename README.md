@@ -52,7 +52,7 @@ This is the recommended method, and allows Discord users to PM you through a
 bot.
 
 First visit your [Discord Application
-Portal](https://discordapp.com/login?redirect_to=%2Fdevelopers%2Fapplications%2Fme).
+Portal](https://discord.com/developers/applications).
 
 1. Click on 'New Application'
 
