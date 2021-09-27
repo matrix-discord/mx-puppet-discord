@@ -52,31 +52,31 @@ This is the recommended method, and allows Discord users to PM you through a
 bot.
 
 First visit your [Discord Application
-Portal](https://discordapp.com/login?redirect_to=%2Fdevelopers%2Fapplications%2Fme).
+Portal](https://discord.com/developers/applications).
 
 1. Click on 'New Application'
 
-![](img/bot-1.jpg)
+![](img/bot-1.png)
 
 2. Customize your bot how you like
 
-![](img/bot-2.jpg)
+![](img/bot-2.png)
 
-3. Go to ‘**Create Application**’ and scroll down to the next page. Find ‘**Create a Bot User**’ and click on it.
+3. Go to ‘**Bot**’ and click on ‘**Add Bot**’ and click on it.
 
-![](img/bot-3.jpg)
+![](img/bot-3.png)
 
-4. Click '**Yes, do it!**
+4. Click ‘**Yes, do it!**’
 
-![](img/bot-4.jpg)
+![](img/bot-4.png)
 
-5. Find the bot's token in the '**App Bot User**' section.
+5. Find the bot's token in the '**Build-A-Bot**' section.
 
-![](img/bot-5.jpg)
+![](img/bot-5.png)
 
-6. Click '**Click to Reveal**'
+6. Click '**Click to Reveal Token**'
 
-![](img/bot-6.jpg)
+![](img/bot-6.png)
 
 Finally, send the appservice bot a message with the contents `link bot
 your.token-here`.
