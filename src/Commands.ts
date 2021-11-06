@@ -202,7 +202,7 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			return;
 		}
 		if (param == null || param == undefined) {
-			await sendMessage("Command is missing parameters. Usage: bridgeall <puppetId> <1/0>");
+			await sendMessage("Usage: `bridgeall <puppetId> <1/0>`");
 		}
 		const bridgeAll = param === "1" || param.toLowerCase() === "true";
 		p.data.bridgeAll = bridgeAll;
