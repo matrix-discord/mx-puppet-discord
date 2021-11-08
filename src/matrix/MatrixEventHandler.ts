@@ -92,7 +92,7 @@ export class MatrixEventHandler {
 		}
 		try {
 			const filename = await this.app.discord.discordEscape(data.filename);
-			const msg = `Uploaded a file \`${filename}\`: ${data.url}`;
+			const msg = `${data.url}/${filename}`;
 			this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, msg);
 			const reply = await this.app.discord.sendToDiscord(chan, msg, asUser);
 			await this.app.matrix.insertNewEventId(room, data.eventId!, reply);
