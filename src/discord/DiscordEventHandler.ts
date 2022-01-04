@@ -84,7 +84,7 @@ export class DiscordEventHandler {
 				});
 			}
 		}
-		for (const attachment of msg.attachments.array()) {
+		for (const attachment of msg.attachments.values()) {
 			params.externalUrl = attachment.url;
 			await this.app.puppet.sendFileDetect(params, attachment.url, attachment.name || undefined);
 		}

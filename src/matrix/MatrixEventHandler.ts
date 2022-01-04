@@ -19,6 +19,11 @@ import { TextGuildChannel } from "../discord/DiscordUtil";
 
 const log = new Log("DiscordPuppet:MatrixEventHandler");
 
+enum PresenceStatus {
+    online = "online",
+    offline = "invisible",
+    unavailable = "idle",
+};
 export class MatrixEventHandler {
 	public constructor(private readonly app: App) {}
 
@@ -43,7 +48,7 @@ export class MatrixEventHandler {
 		const lockKey = `${room.puppetId};${chan.id}`;
 		this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
 		try {
-			const reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser);
+			const reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser, null);
 			await this.app.matrix.insertNewEventId(room, data.eventId!, reply);
 		} catch (err) {
 			log.warn("Couldn't send message", err);
@@ -81,7 +86,7 @@ export class MatrixEventHandler {
 						url: data.url,
 						isImage,
 					};
-					const reply = await this.app.discord.sendToDiscord(chan, sendFile, asUser);
+					const reply = await this.app.discord.sendToDiscord(chan, sendFile, asUser, null);
 					await this.app.matrix.insertNewEventId(room, data.eventId!, reply);
 					return;
 				} catch (err) {
@@ -94,7 +99,7 @@ export class MatrixEventHandler {
 			const filename = await this.app.discord.discordEscape(data.filename);
 			const msg = `Uploaded a file \`${filename}\`: ${data.url}`;
 			this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, msg);
-			const reply = await this.app.discord.sendToDiscord(chan, msg, asUser);
+			const reply = await this.app.discord.sendToDiscord(chan, msg, asUser, null);
 			await this.app.matrix.insertNewEventId(room, data.eventId!, reply);
 		} catch (err) {
 			log.warn("Couldn't send media message", err);
@@ -165,7 +170,7 @@ export class MatrixEventHandler {
 		const lockKey = `${room.puppetId};${chan.id}`;
 		this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
 		try {
-			let reply: Discord.Message | Discord.Message[];
+			let reply: any;
 			let matrixEventId = data.eventId!;
 			if (asUser) {
 				const hook = this.app.discord.isTextGuildChannel(chan) ?
@@ -173,8 +178,8 @@ export class MatrixEventHandler {
 				if (hook && msg.webhookID === hook.id) {
 					// the original message was by our webhook, try to edit it
 					reply = await hook.editMessage(msg, sendMsg, {
-						username: asUser.displayname,
 						avatarURL: asUser.avatarUrl || undefined,
+						username: asUser.displayname,
 					});
 				} else if (eventId === this.app.lastEventIds[chan.id]) {
 					// just re-send as new message
@@ -189,10 +194,10 @@ export class MatrixEventHandler {
 					} catch (err) {
 						log.warn("Couldn't delete old message", err);
 					}
-					reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser);
+					reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser, null);
 				} else {
 					sendMsg = `**EDIT:** ${sendMsg}`;
-					reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser);
+					reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser, null);
 				}
 			} else {
 				reply = await msg.edit(sendMsg);
@@ -222,23 +227,11 @@ export class MatrixEventHandler {
 			return;
 		}
 		log.verbose(`Replying to message with ID ${eventId}...`);
-		const msg = await chan.messages.fetch(eventId);
-		if (!msg) {
-			return;
-		}
 		let sendMsg = await this.app.matrix.parseMatrixMessage(room.puppetId, event.content);
-		let content = msg.content;
-		if (!content && msg.embeds.length > 0 && msg.embeds[0].description) {
-			content = msg.embeds[0].description;
-		}
-		const quoteParts = content.split("\n");
-		quoteParts[0] = `<@${msg.author.id}>: ${quoteParts[0]}`;
-		const quote = quoteParts.map((s) => `> ${s}`).join("\n");
-		sendMsg = `${quote}\n${sendMsg}`;
 		const lockKey = `${room.puppetId};${chan.id}`;
 		try {
 			this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
-			const reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser);
+			const reply = await this.app.discord.sendToDiscord(chan, sendMsg, asUser, eventId);
 			await this.app.matrix.insertNewEventId(room, data.eventId!, reply);
 		} catch (err) {
 			log.warn("Couldn't send reply", err);
@@ -303,7 +296,7 @@ export class MatrixEventHandler {
 		if (reaction.startsWith("mxc://")) {
 			emoji = await this.app.discord.getDiscordEmoji(room.puppetId, reaction);
 		}
-		for (const r of msg.reactions.cache.array()) {
+		for (const r of msg.reactions.cache.values()) {
 			if (r.emoji.name === reaction) {
 				await r.remove();
 				break;
@@ -331,7 +324,7 @@ export class MatrixEventHandler {
 			return;
 		}
 		if (typing) {
-			await chan.startTyping();
+			await chan.startTyping(5);
 		} else {
 			chan.stopTyping(true);
 		}
@@ -348,11 +341,7 @@ export class MatrixEventHandler {
 			return;
 		}
 		const presenceObj: Discord.PresenceData = {
-			status: {
-				online: "online",
-				offline: "invisible",
-				unavailable: "idle",
-			}[presence.presence] as "online" | "invisible" | "idle" | undefined,
+			status: PresenceStatus[presence.presence],
 		};
 		if (presence.statusMsg) {
 			presenceObj.activity = {

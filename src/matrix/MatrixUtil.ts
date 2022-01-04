@@ -138,7 +138,7 @@ export class MatrixUtil {
 			if (chan) {
 				response.roomOverrides[chan.id] = this.getRemoteUserRoomOverride(member, chan);
 			} else {
-				for (const gchan of member.guild.channels.cache.array()) {
+				for (const gchan of member.guild.channels.cache.values()) {
 					if (this.app.discord.isBridgeableGuildChannel(gchan)) {
 						response.roomOverrides[gchan.id] = this.getRemoteUserRoomOverride(member, gchan as BridgeableGuildChannel);
 					}
@@ -156,7 +156,7 @@ export class MatrixUtil {
 		const ret: IRemoteRoom = {
 			roomId,
 			puppetId,
-			isDirect: channel.type === "dm",
+			isDirect: channel.type === "group" || channel.type === "dm",
 		};
 		if (channel instanceof Discord.GroupDMChannel) {
 			ret.nameVars = {
@@ -264,10 +264,10 @@ export class MatrixUtil {
 		}
 		const remoteUser = this.getRemoteUser(user.puppetId, u);
 		remoteUser.roomOverrides = {};
-		for (const guild of p.client.guilds.cache.array()) {
+		for (const guild of p.client.guilds.cache.values()) {
 			const member = guild.members.resolve(u.id);
 			if (member) {
-				for (const chan of guild.channels.cache.array()) {
+				for (const chan of guild.channels.cache.values()) {
 					if (this.app.discord.isBridgeableGuildChannel(chan)) {
 						remoteUser.roomOverrides[chan.id] = this.getRemoteUserRoomOverride(member, chan as BridgeableGuildChannel);
 					}
@@ -297,7 +297,7 @@ export class MatrixUtil {
 		if (!p) {
 			return [];
 		}
-		for (const guild of p.client.guilds.cache.array()) {
+		for (const guild of p.client.guilds.cache.values()) {
 			let didGuild = false;
 			let didCat = false;
 			await this.app.discord.iterateGuildStructure(puppetId, guild,
@@ -323,7 +323,7 @@ export class MatrixUtil {
 				},
 			);
 		}
-		for (const chan of p.client.channels.cache.array()) {
+		for (const chan of p.client.channels.cache.values()) {
 			if (chan instanceof Discord.GroupDMChannel) {
 				const found = retGuilds.find((element) => element.id === chan.id);
 				if (!found) {
@@ -388,7 +388,7 @@ export class MatrixUtil {
 			let name = chan.name;
 			if (!name) {
 				const names: string[] = [];
-				for (const user of chan.recipients.array()) {
+				for (const user of chan.recipients.values()) {
 					names.push(user.username);
 				}
 				name = names.join(", ");

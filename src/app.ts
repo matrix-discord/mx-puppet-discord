@@ -304,7 +304,7 @@ export class App {
 			try {
 				const remoteGroup = await this.matrix.getRemoteGroup(puppetId, guild);
 				await this.puppet.updateGroup(remoteGroup);
-				for (const chan of guild.channels.cache.array()) {
+				for (const chan of guild.channels.cache.values()) {
 					if (!this.discord.isBridgeableGuildChannel(chan)) {
 						return;
 					}

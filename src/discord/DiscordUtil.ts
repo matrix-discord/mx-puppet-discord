@@ -48,7 +48,7 @@ export class DiscordUtil {
 				return chan as BridgeableChannel;
 			}
 			// next iterate over all the guild channels
-			for (const guild of client.guilds.cache.array()) {
+			for (const guild of client.guilds.cache.values()) {
 				const c = guild.channels.resolve(id);
 				if (this.isBridgeableChannel(c)) {
 					return c as BridgeableChannel;
@@ -108,9 +108,10 @@ export class DiscordUtil {
 		chan: TextChannel,
 		msg: string | IDiscordSendFile,
 		asUser: ISendingUser | null,
-	): Promise<Discord.Message | Discord.Message[]> {
+		referenceId: string | null,
+	) {
 		log.debug("Sending something to discord...");
-		let sendThing: string | Discord.MessageAdditions;
+		let sendThing: string | Discord.MessageOptions | Discord.MessageAttachment;
 		if (typeof msg === "string") {
 			sendThing = msg;
 		} else {
@@ -119,6 +120,16 @@ export class DiscordUtil {
 		if (!asUser) {
 			// we don't want to relay, so just send off nicely
 			log.debug("Not in relay mode, just sending as user");
+			if (referenceId) {
+				try {
+					return await chan.send(sendThing, { messageReference: {
+						message_id: referenceId,
+						channel_id: chan.id
+					} });
+				} catch (err) {
+					log.warn("Couldn't send the reply", err);
+				}
+			}
 			return await chan.send(sendThing);
 		}
 		// alright, we have to send as if it was another user. First try webhooks.
@@ -292,7 +303,7 @@ export class DiscordUtil {
 		const client = guild.client;
 		const bridgeAll = Boolean(this.app.puppets[puppetId] && this.app.puppets[puppetId].data.bridgeAll);
 		// first we iterate over the non-sorted channels
-		for (const chan of guild.channels.cache.array()) {
+		for (const chan of guild.channels.cache.values()) {
 			if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id) && !bridgeAll) {
 				continue;
 			}
@@ -301,13 +312,13 @@ export class DiscordUtil {
 			}
 		}
 		// next we iterate over the categories and all their children
-		for (const cat of guild.channels.cache.array()) {
+		for (const cat of guild.channels.cache.values()) {
 			if (!(cat instanceof Discord.CategoryChannel)) {
 				continue;
 			}
 			if (cat.members.has(client.user!.id)) {
 				let doCat = false;
-				for (const chan of cat.children.array()) {
+				for (const chan of cat.children.values()) {
 					if (!bridgedGuilds.includes(guild.id) && !bridgedChannels.includes(chan.id) && !bridgeAll) {
 						continue;
 					}
@@ -324,7 +335,7 @@ export class DiscordUtil {
 	}
 
 	public async getUserById(client: Discord.Client, id: string): Promise<Discord.User | null> {
-		for (const guild of client.guilds.cache.array()) {
+		for (const guild of client.guilds.cache.values()) {
 			const a = guild.members.cache.find((m) => m.user.id === id);
 			if (a) {
 				return a.user;
