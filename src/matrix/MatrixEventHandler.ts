@@ -16,6 +16,7 @@ import { App, IDiscordSendFile, MAXFILESIZE, AVATAR_SETTINGS } from "../app";
 import * as Discord from "better-discord.js";
 import { TextEncoder, TextDecoder } from "util";
 import { TextGuildChannel } from "../discord/DiscordUtil";
+import * as sharp from "sharp";
 
 const log = new Log("DiscordPuppet:MatrixEventHandler");
 
@@ -73,9 +74,12 @@ export class MatrixEventHandler {
 		const lockKey = `${room.puppetId};${chan.id}`;
 		const isImage = Boolean(mimetype && mimetype.split("/")[0] === "image");
 		if (size < MAXFILESIZE) {
-			const buffer = await Util.DownloadFile(data.url);
+			let buffer = await Util.DownloadFile(data.url);
 			size = buffer.byteLength;
 			if (size < MAXFILESIZE) {
+				if (data.type === "sticker") {
+					buffer = await sharp(buffer).resize({ withoutEnlargement: true, height: 160 }).toBuffer()
+				}
 				// send as attachment
 				const filename = this.app.getFilenameForMedia(data.filename, mimetype);
 				this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, `file:${filename}`);
