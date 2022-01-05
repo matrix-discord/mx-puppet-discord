@@ -78,6 +78,7 @@ export class MatrixEventHandler {
 			size = buffer.byteLength;
 			if (size < MAXFILESIZE) {
 				if (data.type === "sticker") {
+					// it is a sticker, resize to 160x160px (personal preference)
 					buffer = await sharp(buffer).resize({ withoutEnlargement: true, height: 160 }).toBuffer()
 				}
 				// send as attachment
@@ -174,7 +175,7 @@ export class MatrixEventHandler {
 		const lockKey = `${room.puppetId};${chan.id}`;
 		this.app.messageDeduplicator.lock(lockKey, p.client.user!.id, sendMsg);
 		try {
-			let reply: any;
+			let reply: Discord.Message | Discord.Message[];
 			let matrixEventId = data.eventId!;
 			if (asUser) {
 				const hook = this.app.discord.isTextGuildChannel(chan) ?
@@ -182,8 +183,8 @@ export class MatrixEventHandler {
 				if (hook && msg.webhookID === hook.id) {
 					// the original message was by our webhook, try to edit it
 					reply = await hook.editMessage(msg, sendMsg, {
-						avatarURL: asUser.avatarUrl || undefined,
 						username: asUser.displayname,
+						avatarURL: asUser.avatarUrl || undefined,
 					});
 				} else if (eventId === this.app.lastEventIds[chan.id]) {
 					// just re-send as new message
@@ -328,6 +329,7 @@ export class MatrixEventHandler {
 			return;
 		}
 		if (typing) {
+			// send a typing indicator only for 5 seconds? maybe that fixes the issue of it bugging out, I don't know
 			await chan.startTyping(5);
 		} else {
 			chan.stopTyping(true);

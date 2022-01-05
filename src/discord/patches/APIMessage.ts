@@ -1,9 +1,6 @@
-import { patchClass } from '../utils/Patcher';
-import { MessageAttachment, MessageEmbed, MessageFlags, Util, APIMessage as APIMessageType } from "better-discord.js"
+import { MessageAttachment, MessageEmbed, MessageFlags, Util } from "better-discord.js"
 
 const APIMessage = require('better-discord.js').APIMessage;
-
-const proto = APIMessage.prototype;
 
 APIMessage.prototype.resolveData = function afterResolveData() {
 	console.log("\n\n\Data:", this.data, "\n\n\n");
@@ -79,10 +76,10 @@ APIMessage.prototype.resolveData = function afterResolveData() {
 };
 
 function transformOptions(content, options, extra = {}, isWebhook = false) {
-    if (!options && typeof content === 'object' && !Array.isArray(content)) {
-      options = content;
-      content = undefined;
-    }
+	if (!options && typeof content === 'object' && !Array.isArray(content)) {
+		options = content;
+		content = undefined;
+	}
 
 
 	if (options && options.messageReference) {
@@ -93,26 +90,26 @@ function transformOptions(content, options, extra = {}, isWebhook = false) {
 		console.log("\n\n\n", extra, "\n\n\n")
 		delete options.messageReference;
 	}
- 
-    if (!options) {
-      options = {};
-    } else if (options instanceof MessageEmbed) {
-      return isWebhook ? { content, embeds: [options], ...extra } : { content, embed: options, ...extra };
-    } else if (options instanceof MessageAttachment) {
-      return { content, files: [options], ...extra };
-    }
 
-    if (Array.isArray(options)) {
-      const [embeds, files] = this.partitionMessageAdditions(options);
-      return isWebhook ? { content, embeds, files, ...extra } : { content, embed: embeds[0], files, ...extra };
-    } else if (Array.isArray(content)) {
-      const [embeds, files] = this.partitionMessageAdditions(content);
-      if (embeds.length || files.length) {
-        return isWebhook ? { embeds, files, ...extra } : { embed: embeds[0], files, ...extra };
-      }
-    }
+	if (!options) {
+		options = {};
+	} else if (options instanceof MessageEmbed) {
+		return isWebhook ? { content, embeds: [options], ...extra } : { content, embed: options, ...extra };
+	} else if (options instanceof MessageAttachment) {
+		return { content, files: [options], ...extra };
+	}
 
-    return { content, ...options, ...extra };
-  }
+	if (Array.isArray(options)) {
+		const [embeds, files] = this.partitionMessageAdditions(options);
+		return isWebhook ? { content, embeds, files, ...extra } : { content, embed: embeds[0], files, ...extra };
+	} else if (Array.isArray(content)) {
+		const [embeds, files] = this.partitionMessageAdditions(content);
+		if (embeds.length || files.length) {
+			return isWebhook ? { embeds, files, ...extra } : { embed: embeds[0], files, ...extra };
+		}
+	}
 
-  APIMessage.transformOptions = transformOptions;
+	return { content, ...options, ...extra };
+}
+
+APIMessage.transformOptions = transformOptions;

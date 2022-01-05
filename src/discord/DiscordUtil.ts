@@ -109,9 +109,9 @@ export class DiscordUtil {
 		msg: string | IDiscordSendFile,
 		asUser: ISendingUser | null,
 		referenceId: string | null,
-	) {
+	): Promise<Discord.Message | Discord.Message[]> {
 		log.debug("Sending something to discord...");
-		let sendThing: string | Discord.MessageOptions | Discord.MessageAttachment;
+		let sendThing: string | Discord.MessageAdditions;
 		if (typeof msg === "string") {
 			sendThing = msg;
 		} else {
@@ -122,6 +122,7 @@ export class DiscordUtil {
 			log.debug("Not in relay mode, just sending as user");
 			if (referenceId) {
 				try {
+					// it is a reply message! use a proper Discord reply syntax
 					return await chan.send(sendThing, { messageReference: {
 						message_id: referenceId,
 						channel_id: chan.id
