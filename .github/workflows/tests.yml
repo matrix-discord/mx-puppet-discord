@@ -27,8 +27,13 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev librsvg2-dev
     - name: Upgrade to npm@8
       run: npm install -g npm@8
     - run: npm ci
     - run: npm run build --if-present
-    - run: npm test
+# For future
+#    - run: npm test
