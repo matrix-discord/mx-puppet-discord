@@ -201,6 +201,9 @@ Additionally you will be invited to guild channels as messages are sent in them.
 			await sendMessage("Puppet not found!");
 			return;
 		}
+		if (param == null || param == undefined) {
+			await sendMessage("Usage: `bridgeall <puppetId> <1/0>`");
+		}
 		const bridgeAll = param === "1" || param.toLowerCase() === "true";
 		p.data.bridgeAll = bridgeAll;
 		await this.app.puppet.setPuppetData(puppetId, p.data);
